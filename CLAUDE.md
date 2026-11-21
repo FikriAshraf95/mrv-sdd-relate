@@ -13,14 +13,25 @@
 
 ## How to read specs (token rule)
 
-Until M03b is done: run `grep -n '^## ' <spec>` to find a section's line range, then Read with offset/limit. Never read a whole spec unless the milestone says "(whole file)".
+This repo is built with its own tool (from M03b). **Before a session**, start the daemon in the dev container (it serves `/mcp` on host loopback :8770; `.mcp.json` has the `sdd` server):
 
-From M03b on (once the daemon runs and `.mcp.json` is set up): start each session with `what_changed(since="last_session", agent="<your agent name>")` (the same name every session: `opus-orch` for the main session), then `get_context(<task>)`, and `read_section("SPEC-04 §5.2")` for anything else. Fall back to the grep rule only if the daemon is down.
+```bash
+docker compose -f docker-compose.dev.yml exec -d dev uv run sdd daemon --host 0.0.0.0
+```
+
+Then follow [.claude/skills/sdd/SKILL.md](.claude/skills/sdd/SKILL.md):
+- Start every session with `what_changed(since="last_session", agent="opus-orch")` (subagents use their own fixed names, e.g. `sonnet-1`).
+- Work a task with `claim_task` → `get_context(<task>)` → `read_section("SPEC-04 §5.2")` for anything in its `outline` → build and test → `log_deviation` for every departure → `complete_task`. Close a milestone with `complete_milestone`.
+- `query(cypher)` for read-only questions about the graph.
+
+**Fallback only if the daemon is down:** run `grep -n '^## ' <spec>` to find a section's line range, then Read with offset/limit. Never read a whole spec unless the milestone says "(whole file)".
+
+**Write task lines with links to the sections they implement** (`[SPEC-05 §4](…)`): a task that links nothing gets the whole *Read first* set as its context packet, which is no smaller than reading the files.
 
 ## Status
 
 <!-- sdd:status -->
-Specs v1 written (2026-11-21). **Done:** [M00a](docs/milestones/done/M00a-docker-and-skeleton.md) Docker and package skeleton (2026-11-21; O9 closed); [M00b](docs/milestones/done/M00b-relate-access-layer.md) Relate access layer (2026-11-21; O5, O6, O10–O12 closed; D001). [M01a](docs/milestones/done/M01a-markdown-parsers.md) Markdown parsers (2026-11-21; deviations: none). [M01b](docs/milestones/done/M01b-graph-sync.md) Graph upsert and full sync (2026-11-22; D002, D003). M00b human review done (2026-11-22). [M02](docs/milestones/done/M02-sync-daemon.md) Sync daemon (2026-11-22; deviations: none). [M03a](docs/milestones/done/M03a-coordination-tools.md) Coordination tools (2026-11-21 UTC; D004, D005; closed with its own `sdd milestone-done`). **Next: [M03b Context, query guard, integration](docs/milestones/M03b-context-and-integration.md)**. Spec audit applied and milestones split into sub-milestones (2026-11-21). Decisions in [docs/decisions/](docs/decisions/README.md): DEC-001 to DEC-004 all accepted. O1 closed: office-suite-v2 can't be published, so the sample is invented.
+Specs v1 written (2026-11-21). **Done:** [M00a](docs/milestones/done/M00a-docker-and-skeleton.md) Docker and package skeleton (2026-11-21; O9 closed); [M00b](docs/milestones/done/M00b-relate-access-layer.md) Relate access layer (2026-11-21; O5, O6, O10–O12 closed; D001). [M01a](docs/milestones/done/M01a-markdown-parsers.md) Markdown parsers (2026-11-21; deviations: none). [M01b](docs/milestones/done/M01b-graph-sync.md) Graph upsert and full sync (2026-11-22; D002, D003). M00b human review done (2026-11-22). [M02](docs/milestones/done/M02-sync-daemon.md) Sync daemon (2026-11-22; deviations: none). [M03a](docs/milestones/done/M03a-coordination-tools.md) Coordination tools (2026-11-21 UTC; D004, D005; closed with its own `sdd milestone-done`). **In progress: [M03b Context, query guard, integration](docs/milestones/M03b-context-and-integration.md)**: M03b.1–.4 and .6 done (2026-11-22, O4 closed); M03b.5 waits for Claude Code to connect to the `sdd` MCP server, then the acceptance walkthrough with subagents and `complete_milestone`. Next after it: M04a. Spec audit applied and milestones split into sub-milestones (2026-11-21). Decisions in [docs/decisions/](docs/decisions/README.md): DEC-001 to DEC-004 all accepted. O1 closed: office-suite-v2 can't be published, so the sample is invented.
 <!-- /sdd:status -->
 
 When a milestone is done: tick its boxes, set **Status** to `DONE (date)` + how acceptance was verified + deviations (`D003, D004` or "Deviations: none"), then move it and its plan file to `docs/milestones/done/` and update the status block. From M03b on, `complete_milestone` does this (it exists from M03a).
@@ -60,6 +71,7 @@ docker compose -f docker-compose.dev.yml exec dev uv run pytest -q
 docker compose -f docker-compose.dev.yml exec dev uv run pytest tests/spec05/test_claims.py::test_spec05_ac03_double_claim_one_winner
 docker compose -f docker-compose.dev.yml exec dev sh -c "uv run ruff check . && uv run ruff format --check . && uv run mypy src/sdd && uv run lint-imports"
 docker compose -f docker-compose.dev.yml exec dev uv run sdd daemon --host 0.0.0.0      # :8770 on host loopback (from M02)
+docker compose -f docker-compose.dev.yml exec dev uv run sdd context M04a.1               # a context packet without MCP (also: sdd section, sdd query)
 docker compose -f docker-compose.dev.yml exec dev uv run sdd doctor --project /refs/office-suite --store :memory:   # reference format check (from M01b)
 docker compose up                                                                        # judges: sample dashboard on :8770 (from M06b)
 ```

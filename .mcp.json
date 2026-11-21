@@ -2,7 +2,16 @@
   "mcpServers": {
     "playwright": {
       "command": "npx",
-      "args": ["-y", "@playwright/mcp@latest", "--output-dir", "playwright/screenshots"]
+      "args": [
+        "-y",
+        "@playwright/mcp@latest",
+        "--output-dir",
+        "playwright/screenshots"
+      ]
+    },
+    "sdd": {
+      "type": "http",
+      "url": "http://localhost:8770/mcp"
     }
   }
 }

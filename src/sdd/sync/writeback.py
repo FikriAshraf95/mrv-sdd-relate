@@ -23,9 +23,8 @@ from sdd.errors import SddError
 from sdd.graph import upsert
 from sdd.graph.store import Tx
 from sdd.graph.upsert import FileIn, NodeIn
-from sdd.ids import InvalidIdError, label_of, normalise
 from sdd.parse import Ref, parse_deviation_index, parse_milestone, parse_spec
-from sdd.parse.links import refs_in_markdown
+from sdd.parse.links import spec_refs
 from sdd.parse.md import id_slug
 from sdd.sync import indexer
 from sdd.sync.indexer import file_hash
@@ -365,27 +364,6 @@ class DeviationResult:
     report: indexer.SyncReport
 
 
-def _refs_of(raw: str) -> list[Ref]:
-    refs = [
-        ref
-        for found in refs_in_markdown(raw, path="", line=1)
-        for ref in found.refs
-        if ref.kind in ("section", "slug", "spec")
-    ]
-    if refs:
-        return refs
-    try:
-        ident = normalise(raw)
-        label = label_of(ident)
-    except InvalidIdError:
-        return []
-    if label == "Section":
-        return [Ref("section", ident, 1)]
-    if label == "Spec":
-        return [Ref("spec", ident, 1)]
-    return []
-
-
 def resolve_amends(tx: Tx, refs: tuple[str, ...]) -> list[AmendTarget]:
     """Each reference (SPEC-03 §2.2 grammar, or a canonical ID) → the sections or spec it names.
 
@@ -395,7 +373,7 @@ def resolve_amends(tx: Tx, refs: tuple[str, ...]) -> list[AmendTarget]:
         raise SddError("invalid_input", "amends needs at least one spec reference.")
     out: dict[str, AmendTarget] = {}
     for raw in refs:
-        parsed = _refs_of(raw.strip())
+        parsed = spec_refs(raw.strip())
         if not parsed:
             raise SddError(
                 "unknown_section",

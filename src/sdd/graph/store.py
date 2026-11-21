@@ -229,23 +229,38 @@ class Store:
     ) -> list[Row]:
         """Run a statement on a fresh ``read_only`` snapshot, in a rolled-back transaction.
 
-        For guarded queries (SPEC-09 §3): it runs on the *calling* thread and never waits behind
-        the write queue. The snapshot holds everything committed so far. ``limit`` caps the rows
-        fetched. An in-memory or read-only store has no separate snapshot, so the statement runs
-        as a rolled-back job on the worker thread instead.
+        It runs on the *calling* thread and never waits behind the write queue. The snapshot
+        holds everything committed so far. ``limit`` caps the rows fetched. An in-memory or
+        read-only store has no separate snapshot, so the statement runs as a rolled-back job on
+        the worker thread instead.
         """
+        return self._on_snapshot(lambda conn: _rows(_exec(conn, cypher, params), limit))
+
+    def query_snapshot(
+        self, cypher: str, params: Mapping[str, Any] | None = None, *, limit: int
+    ) -> tuple[list[str], list[list[Any]]]:
+        """As :meth:`read_snapshot`, for guarded queries (SPEC-09 §3): ``(columns, rows)``,
+        each row a list in column order, at most ``limit`` rows fetched. Columns are known even
+        when no row comes back. Values are decoded like every result (nodes → properties)."""
+
+        def run(conn: relate.Connection) -> tuple[list[str], list[list[Any]]]:
+            cursor = _exec(conn, cypher, params)
+            columns = [str(c) for c in cursor.columns]
+            rows = [[_plain(dict(r)[c]) for c in columns] for r in cursor.fetchmany(limit)]
+            return columns, rows
+
+        return self._on_snapshot(run)
+
+    def _on_snapshot(self, fn: Callable[[relate.Connection], T]) -> T:
         if self.in_memory or self.read_only:
-            future = self._submit(
-                "read", lambda conn: _rows(_exec(conn, cypher, params), limit), retry=False
-            )
-            return future.result()
+            return self._submit("read", fn, retry=False).result()
         try:
             conn = relate.connect(self.path, read_only=True)
         except relate.Error as exc:
             raise _open_error(exc, self.path, read_only=True) from None
         try:
             conn.autocommit = False
-            return _rows(_exec(conn, cypher, params), limit)
+            return fn(conn)
         except relate.Error as exc:
             raise _translate(exc, self.path) from None
         finally:

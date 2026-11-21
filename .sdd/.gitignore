@@ -1,0 +1,6 @@
+# SDD Graph: the live store and the daemon's runtime files are never committed (DEC-001).
+# Committed stores (`sdd snapshot`) keep their .cypherlite.lock markers, so only root locks go.
+/graph/
+/daemon.json
+/*.lock
+.cypherlite.writer

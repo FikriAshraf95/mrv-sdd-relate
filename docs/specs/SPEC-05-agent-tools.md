@@ -19,7 +19,7 @@
 | 3 | `claim_task(task_id, agent)` | ✓ | Atomic claim |
 | 4 | `release_task(task_id, agent, reason?, force=false)` | ✓ | Give a claim back; `force` frees another agent's claim ([§3](#3-claims)) |
 | 5 | `get_context(task_id, detail="task", max_chars=24000, agent?)` | | The context packet ([§4](#4-get_context)) |
-| 6 | `read_section(refs, agent?)` | | Text of one or more sections by reference (`"SPEC-03 §4.2"`, `` "SPEC-02 `documents`" ``); replaces grep + Read |
+| 6 | `read_section(refs, agent?)` | | Text of one or more sections by reference (`"SPEC-03 §4.2"`, `` "SPEC-02 `documents`" ``, `"SPEC-03#4.2"`), each with its descendants, as `{sections: [{id, spec_id, number, title, level, text, amended_by}]}`; replaces grep + Read |
 | 7 | `log_deviation(task_id, agent, title, spec_says, implementation_does, why, consequences?, amends, affects?, status="open")` | ✓ | Logs a deviation the way the manual ritual does ([SPEC-04 §5.1](SPEC-04-sync.md#51-edits)) |
 | 8 | `complete_task(task_id, agent, notes?, files_touched?, commit?)` | ✓ | Ticks the box, records the outcome, returns newly unblocked tasks |
 | 9 | `complete_milestone(milestone_id, agent, verification)` | ✓ | Writes the DONE status line ([§6](#6-complete_milestone)) |
@@ -27,7 +27,7 @@
 | 11 | `impact(target, depth=3, agent?)` | | [SPEC-06 §2](SPEC-06-code-context.md#2-impact) |
 | 12 | `explain(path, agent?)` | | [SPEC-06 §3](SPEC-06-code-context.md#3-explain) |
 | 13 | `find_code(feature?, domain?, table?, spec?, text?, agent?)` | | [SPEC-06 §4](SPEC-06-code-context.md#4-find_code) |
-| 14 | `query(cypher, params?, agent?)` | | Read-only Cypher through the guard ([SPEC-09 §3](SPEC-09-security.md#3-query-guard)), 100-row cap |
+| 14 | `query(cypher, params?, agent?)` | | Read-only Cypher through the guard ([SPEC-09 §3](SPEC-09-security.md#3-query-guard)), 100-row cap; `{columns, rows, truncated}`, each row a list in column order. An engine error (bad syntax) is `invalid_input` |
 
 ## 3. Claims
 
@@ -62,7 +62,7 @@ The minimum an agent needs to build one task, so it does not read whole files.
 Every section named below is included **with its descendants** ([SPEC-03 §2.2](SPEC-03-markdown-parsing.md#22-spec-reference-grammar)): `SPEC-00#6` brings §6.1–6.7 along. Each descendant is its own item in `sections` (so `amended_by` stays per section), in document order, with `why` naming the reference that pulled it in.
 
 What goes where, with `detail = "task"` (default):
-1. **`sections` (full text):** the task's `GOVERNED_BY` sections; the sections of its `VERIFIES` checks' spec named in the task line; every section in `always_include` (config, default `SPEC-00#6` when it exists). If the task governs nothing, the milestone's `READS` sections are used instead.
+1. **`sections` (full text):** the task's `GOVERNED_BY` sections (a governing Spec brings its top-level sections); the *Acceptance checks* section of each spec its `VERIFIES` checks belong to; every section in `always_include` (`.sdd/config.toml`, a list of references, default `["SPEC-00 §6"]`, skipped when it does not resolve). If the task governs nothing, the milestone's `READS` sections are used instead, and stand in for governing sections everywhere below (they are never dropped, and their specs give `code` its features).
 2. **`outline`:** the milestone's other `READS` targets as `id`, `title`, `chars`. A `whole: true` spec appears as its section list. The agent fetches what it needs with `read_section`.
 3. **`deviations`:** every deviation that `AMENDS` an included section. Open ones carry `implementation_does`; resolved ones carry the title only, since the spec already says it.
 4. **`upstream`:** `BLOCKED_BY` tasks and done tasks of the same milestone, with completion notes and files touched from their Events.
@@ -113,7 +113,7 @@ The complete list for MCP, HTTP and CLI. A new code is added here in the same ch
 
 ## 9. Claude Code integration
 
-- `sdd init` writes `.mcp.json`: `{"mcpServers": {"sdd": {"type": "http", "url": "http://localhost:8770/mcp"}}}` (plus a bearer header when `SDD_TOKEN` is set). An existing `.mcp.json` is **merged**: the `sdd` entry is added and other servers are kept; only an existing `sdd` entry needs `--force` to replace.
+- `sdd init` writes `.mcp.json`: `{"mcpServers": {"sdd": {"type": "http", "url": "http://localhost:8770/mcp"}}}` (plus `"headers": {"Authorization": "Bearer ${SDD_TOKEN}"}` when `SDD_TOKEN` is set: Claude Code expands the variable from the environment, so the token itself is never written to a file). An existing `.mcp.json` is **merged**: the `sdd` entry is added and other servers are kept; only an existing `sdd` entry needs `--force` to replace.
 - It also writes `.claude/skills/sdd/SKILL.md` with the **agent protocol**, and offers a CLAUDE.md snippet:
   - **Orchestrator:** `status` → `next_tasks` → launch one subagent per task that has no `overlaps`, telling each its agent name and task ID → review returned work; if a subagent failed, `release_task(…, force=true)` its task → `complete_milestone` when the acceptance criteria are verified.
   - **Worker:** `claim_task` → `get_context` → `read_section` for anything in `outline` it needs → build and test → `log_deviation` for every intentional departure → `complete_task` with notes, files and commit → report.

@@ -41,6 +41,9 @@ DEFAULT_PATHS: Mapping[str, tuple[str, ...]] = MappingProxyType(
     }
 )
 _BOOL_KEYS = frozenset({"writeback"})
+# SPEC-05 §4: spec references every context packet carries in full (default: SPEC-00 §6).
+_LIST_KEYS = frozenset({"always_include"})
+DEFAULT_ALWAYS_INCLUDE = ("SPEC-00 §6",)
 
 WATCH_MODES = ("auto", "poll", "native")
 PUBLIC_QUERY_MODES = ("guarded", "presets")
@@ -61,6 +64,7 @@ class Settings:
     store_path: str  # a directory path, or ":memory:"
     paths: Mapping[str, tuple[str, ...]] = DEFAULT_PATHS
     writeback: bool = True
+    always_include: tuple[str, ...] = DEFAULT_ALWAYS_INCLUDE
     in_container: bool = False
     # SPEC-04 §1, §4, §6
     watch: str = "auto"
@@ -76,6 +80,7 @@ class Settings:
     allowed_hosts: tuple[str, ...] = ()
     trusted_proxy_net: str | None = None
     public_query: str = "guarded"
+    query_timeout: float = 5.0  # SPEC-09 §3 step 3 (seconds; tests shorten it)
     # SPEC-11 §4
     replay_tick: float = 4.0
     replay_max_min: float = 20.0
@@ -146,6 +151,7 @@ def load(
         store_path=store_path,
         paths=MappingProxyType(paths),
         writeback=bool(file_cfg.get("writeback", True)),
+        always_include=tuple(file_cfg.get("always_include", DEFAULT_ALWAYS_INCLUDE)),
         in_container=Path("/.dockerenv").exists(),
         watch=_choice(environ, "SDD_WATCH", "auto", WATCH_MODES),
         poll_interval=_number(environ, "SDD_POLL_INTERVAL", 1.0),
@@ -190,8 +196,13 @@ def _read_config_file(path: Path) -> dict[str, Any]:
             if not isinstance(value, bool):
                 raise SddError("invalid_input", f"{path}: '{key}' must be true or false.")
             out[key] = value
+        elif key in _LIST_KEYS:
+            items = [value] if isinstance(value, str) else value
+            if not isinstance(items, list) or not all(isinstance(i, str) for i in items):
+                raise SddError("invalid_input", f"{path}: '{key}' must be a list of strings.")
+            out[key] = tuple(items)
         else:
-            known = ", ".join(sorted([*DEFAULT_PATHS, *_BOOL_KEYS]))
+            known = ", ".join(sorted([*DEFAULT_PATHS, *_BOOL_KEYS, *_LIST_KEYS]))
             raise SddError(
                 "invalid_input",
                 f"{path}: unknown key '{key}'. Known keys: {known}.",

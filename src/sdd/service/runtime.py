@@ -49,6 +49,7 @@ class Runtime:
     instance: str = field(default_factory=lambda: secrets.token_hex(8))
     started_at: str = ""
     sync_lock: threading.Lock = field(default_factory=threading.Lock)
+    query_gate: threading.Lock = field(default_factory=threading.Lock)  # SPEC-09 §3 step 3
     cache: indexer.ParseCache = field(default_factory=dict)
     last_report: indexer.SyncReport | None = None
     synced_at: str | None = None

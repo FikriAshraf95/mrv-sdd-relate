@@ -1,4 +1,4 @@
-"""The JSON API (SPEC-07 §2; plan M02 §5.1): endpoints 1–6, 12, 16–19 and 21, and ``/mcp``.
+"""The JSON API (SPEC-07 §2): endpoints 1–8, 12, 14, 16–19 and 21, and ``/mcp``.
 
 Each handler validates its input, calls one ``service/`` function and returns its JSON. Read
 handlers are plain ``def`` functions, which Starlette runs in its thread pool, so a blocking store
@@ -22,7 +22,7 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
 from sdd.errors import SddError
-from sdd.service import api_views, changes, coordination
+from sdd.service import api_views, changes, context, coordination, query_guard
 from sdd.service.runtime import Runtime
 from sdd.web import sse
 from sdd.web.errors import HTTP_STATUS, error_response
@@ -121,6 +121,34 @@ def create_app(runtime: Runtime, *, mcp_app: Starlette | None = None) -> Starlet
         since = request.query_params.get("since", "")
         return JSONResponse(changes.what_changed(runtime, since, _q(request, "agent")))
 
+    def section(request: Request) -> Response:
+        ref = request.path_params["ref"]
+        return JSONResponse(context.read_section(runtime, ref, _q(request, "agent")))
+
+    def task_context(request: Request) -> Response:
+        result = context.get_context(
+            runtime,
+            request.path_params["id"],
+            request.query_params.get("detail") or "task",
+            _int(request, "max_chars", 24000),
+            _q(request, "agent"),
+        )
+        return JSONResponse(result)
+
+    async def query(request: Request) -> Response:
+        data = await _body(request)
+        params = data.get("params")
+        if params is not None and not isinstance(params, dict):
+            raise SddError("invalid_input", "params must be a JSON object.")
+        result = await run_in_threadpool(
+            query_guard.run_query,
+            runtime,
+            _str(data, "cypher") or "",
+            params,
+            _str(data, "agent"),
+        )
+        return JSONResponse(result)
+
     def sync(request: Request) -> Response:
         return JSONResponse(runtime.sync(full=True))
 
@@ -187,7 +215,10 @@ def create_app(runtime: Runtime, *, mcp_app: Starlette | None = None) -> Starlet
         Route("/api/nodes/{id:path}", node, methods=["GET"]),
         Route("/api/board", board, methods=["GET"]),
         Route("/api/milestones", milestones, methods=["GET"]),
+        Route("/api/sections/{ref:path}", section, methods=["GET"]),
+        Route("/api/tasks/{id}/context", task_context, methods=["GET"]),
         Route("/api/changes", what_changed, methods=["GET"]),
+        Route("/api/query", query, methods=["POST"]),
         Route("/api/events", sse.events(runtime), methods=["GET"]),
         Route("/api/tasks/{id}/claim", writer(claim), methods=["POST"]),
         Route("/api/tasks/{id}/release", writer(release), methods=["POST"]),

@@ -16,17 +16,20 @@ from urllib.parse import quote
 from sdd.config import Settings
 from sdd.errors import SddError
 from sdd.graph.store import Store
-from sdd.service import changes, coordination, remote
+from sdd.service import changes, context, coordination, query_guard, remote
 from sdd.service.runtime import Runtime
 
 __all__ = [
     "changes_since",
     "claim",
+    "context_packet",
     "deviation",
     "done",
     "milestone_done",
     "next_tasks",
+    "query",
     "release",
+    "section",
 ]
 
 
@@ -87,6 +90,43 @@ def changes_since(settings: Settings, since: str, agent: str | None) -> dict[str
         return result
     with _local(settings, write=False) as runtime:
         return changes.what_changed(runtime, since, agent)
+
+
+def context_packet(
+    settings: Settings, task_id: str, detail: str, max_chars: int, agent: str | None
+) -> dict[str, Any]:
+    if client := _client(settings):
+        result: dict[str, Any] = client.get(
+            f"/api/tasks/{_id(task_id)}/context",
+            {"detail": detail, "max_chars": max_chars, "agent": agent},
+        )
+        return result
+    with _local(settings, write=False) as runtime:
+        return context.get_context(runtime, task_id, detail, max_chars, agent)
+
+
+def section(settings: Settings, refs: list[str], agent: str | None) -> dict[str, Any]:
+    if client := _client(settings):
+        sections: list[Any] = []
+        out: dict[str, Any] = {}
+        for ref in refs:  # one endpoint call per reference (SPEC-07 endpoint 7)
+            out = client.get(f"/api/sections/{_id(ref)}", {"agent": agent})
+            sections += [s for s in out["sections"] if s not in sections]
+        return {**out, "sections": sections}
+    with _local(settings, write=False) as runtime:
+        return context.read_section(runtime, refs, agent)
+
+
+def query(
+    settings: Settings, cypher: str, params: dict[str, Any] | None, agent: str | None
+) -> dict[str, Any]:
+    if client := _client(settings):
+        result: dict[str, Any] = client.post(
+            "/api/query", {"cypher": cypher, "params": params, "agent": agent}
+        )
+        return result
+    with _local(settings, write=False) as runtime:
+        return query_guard.run_query(runtime, cypher, params, agent)
 
 
 def claim(settings: Settings, task_id: str, agent: str) -> dict[str, Any]:

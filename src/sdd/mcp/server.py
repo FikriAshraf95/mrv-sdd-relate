@@ -1,10 +1,10 @@
-"""The MCP server (SPEC-05): tools 1–4 and 7–10, served over streamable HTTP at ``/mcp``.
+"""The MCP server (SPEC-05): tools 1–10 and 14, served over streamable HTTP at ``/mcp``.
 
 Each tool validates its input, calls one ``service/`` function and returns its JSON, the same
 result the matching HTTP endpoint and CLI command give (SPEC-05 §1 rule 1). Errors come back as
 an ``is_error`` result whose text is the one error shape (SPEC-00 §6.4). Tools are plain ``def``
 functions, which the SDK runs in a worker thread, so a store call never blocks the event loop.
-Tools 5, 6 and 11–14 arrive in M03b and M04b.
+Tools 11–13 arrive in M04b.
 """
 
 from __future__ import annotations
@@ -21,12 +21,12 @@ from starlette.applications import Starlette
 
 from sdd import __version__
 from sdd.errors import SddError
-from sdd.service import changes, coordination
+from sdd.service import changes, context, coordination, query_guard
 from sdd.service.runtime import Runtime
 
 __all__ = ["INSTRUCTIONS", "TOOLS", "create_server", "streamable_app"]
 
-# The three-line protocol (SPEC-05 §9); the full one is in .claude/skills/sdd/SKILL.md (M03b).
+# The three-line protocol (SPEC-05 §9); the full one is in .claude/skills/sdd/SKILL.md.
 INSTRUCTIONS = (
     'Session start: what_changed(since="last_session", agent=<your name>); use the same agent '
     "name every session.\n"
@@ -42,10 +42,13 @@ TOOLS = (
     "next_tasks",
     "claim_task",
     "release_task",
+    "get_context",
+    "read_section",
     "log_deviation",
     "complete_task",
     "complete_milestone",
     "what_changed",
+    "query",
 )
 
 Agent = Annotated[str, Field(description="Your agent name, the same every session.")]
@@ -107,6 +110,41 @@ def create_server(runtime: Runtime) -> MCPServer:
     ) -> CallToolResult:
         """Give a claim back; with force, free another agent's claim."""
         return _result(lambda: coordination.release_task(runtime, task_id, agent, reason, force))
+
+    @server.tool()
+    def get_context(
+        task_id: TaskId,
+        detail: Annotated[
+            str,
+            Field(
+                description='"task" (default): what this task needs; "milestone": every section '
+                "the milestone reads.",
+                pattern="^(task|milestone)$",
+            ),
+        ] = "task",
+        max_chars: Annotated[int, Field(ge=context.MIN_CHARS, le=context.MAX_CHARS)] = 24000,
+        agent: OptAgent = None,
+    ) -> CallToolResult:
+        """The context packet for a task: governing spec sections in full (with descendants and
+        the deviations amending them), an outline of the milestone's other reading, checks,
+        upstream task notes and related code. Use it instead of reading spec files."""
+        return _result(lambda: context.get_context(runtime, task_id, detail, max_chars, agent))
+
+    @server.tool()
+    def read_section(
+        refs: Annotated[
+            list[str],
+            Field(
+                description="Spec references, e.g. ['SPEC-03 §4.2', 'SPEC-02 §3–4', "
+                "'SPEC-02 `documents`'].",
+                min_length=1,
+            ),
+        ],
+        agent: OptAgent = None,
+    ) -> CallToolResult:
+        """The text of spec sections by reference, each with its subsections. Replaces grep and
+        reading the file."""
+        return _result(lambda: context.read_section(runtime, refs, agent))
 
     @server.tool()
     def log_deviation(  # noqa: PLR0917 (an MCP tool takes its arguments by name)
@@ -181,6 +219,16 @@ def create_server(runtime: Runtime) -> MCPServer:
         """What changed since then: sections, specs, deviations, tasks completed and claimed,
         milestones done. Use it instead of re-reading docs at session start."""
         return _result(lambda: changes.what_changed(runtime, since, agent))
+
+    @server.tool()
+    def query(
+        cypher: Annotated[str, Field(description="One read-only Cypher statement.")],
+        params: dict[str, Any] | None = None,
+        agent: OptAgent = None,
+    ) -> CallToolResult:
+        """Read-only Cypher through the guard: no writes or CALL, variable-length patterns at
+        most *..4, 100 rows, 5 s. Returns {columns, rows, truncated}."""
+        return _result(lambda: query_guard.run_query(runtime, cypher, params, agent))
 
     return server
 

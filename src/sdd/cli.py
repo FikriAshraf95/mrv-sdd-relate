@@ -22,6 +22,7 @@ from sdd import __version__, config
 from sdd.errors import SddError
 from sdd.service import commands, indexing
 from sdd.service import info as info_service
+from sdd.service import init as init_service
 from sdd.service import status as status_service
 from sdd.service import task_ids as ids_service
 
@@ -603,3 +604,115 @@ def changes(
         for item in result[group]:
             title = f" {item['title']}" if item.get("title") else ""
             typer.echo(f"{item['at']} {group} {item['id']}{title} ({item['actor']})")
+
+
+@app.command("context")
+def context_(
+    ctx: typer.Context,
+    task: TaskArg,
+    detail: Annotated[
+        str, typer.Option("--detail", help="task (default) or milestone (every section read).")
+    ] = "task",
+    max_chars: Annotated[
+        int, typer.Option("--max-chars", help="Drop parts above this size.")
+    ] = 24000,
+    agent: OptAgentOpt = None,
+    project: ProjectOpt = None,
+    store: StoreOpt = None,
+    as_json: JsonOpt = False,
+) -> None:
+    """Print a task's context packet."""
+    settings, use_json = resolve(ctx, project, store, as_json)
+    result = _run(
+        use_json, lambda: commands.context_packet(settings, task, detail, max_chars, agent)
+    )
+    if use_json:
+        return
+    t, m = result["task"], result["milestone"]
+    typer.echo(f"{t['id']} {t['title']} [{t['status']}]  ({m['id']} {m['title']})")
+    for s in result["sections"]:
+        typer.echo(f"\n## {s['id']} {s['title']}  ({s['why']})\n{s['text']}")
+    for d in result["deviations"]:
+        typer.echo(f"\n{d['id']} [{d['status']}] {d['title']}: {d.get('implementation_does', '')}")
+    if result["outline"]:
+        typer.echo("\noutline: " + ", ".join(f"{o['id']} {o['title']}" for o in result["outline"]))
+    size = result["size"]
+    cut = f", truncated {', '.join(size['truncated'])}" if size["truncated"] else ""
+    typer.echo(f"\n{size['chars']} chars (~{size['tokens_est']} tokens{cut})")
+
+
+@app.command()
+def section(
+    ctx: typer.Context,
+    refs: Annotated[list[str], typer.Argument(help="Spec references, e.g. 'SPEC-03 §4.2'.")],
+    agent: OptAgentOpt = None,
+    project: ProjectOpt = None,
+    store: StoreOpt = None,
+    as_json: JsonOpt = False,
+) -> None:
+    """Print spec sections by reference, with their subsections."""
+    settings, use_json = resolve(ctx, project, store, as_json)
+    result = _run(use_json, lambda: commands.section(settings, refs, agent))
+    if use_json:
+        return
+    for s in result["sections"]:
+        typer.echo(f"## {s['id']} {s['title']}\n{s['text']}\n")
+
+
+@app.command()
+def query(
+    ctx: typer.Context,
+    cypher: Annotated[str, typer.Argument(help="One read-only Cypher statement.")],
+    params: Annotated[
+        str | None, typer.Option("--params", help="Parameters as a JSON object.")
+    ] = None,
+    agent: OptAgentOpt = None,
+    project: ProjectOpt = None,
+    store: StoreOpt = None,
+    as_json: JsonOpt = False,
+) -> None:
+    """Run read-only Cypher through the query guard (100 rows, 5 s)."""
+    settings, use_json = resolve(ctx, project, store, as_json)
+    try:
+        values = json.loads(params) if params else None
+    except ValueError:
+        fail(SddError("invalid_input", "--params is not valid JSON."), use_json)
+    result = _run(use_json, lambda: commands.query(settings, cypher, values, agent))
+    if use_json:
+        return
+    typer.echo("\t".join(result["columns"]))
+    for row in result["rows"]:
+        typer.echo("\t".join(json.dumps(v, ensure_ascii=False) for v in row))
+    if result["truncated"]:
+        typer.echo(f"(truncated at {len(result['rows'])} rows)")
+
+
+@app.command()
+def init(
+    ctx: typer.Context,
+    force: Annotated[
+        bool, typer.Option("--force", help="Replace files and the sdd .mcp.json entry.")
+    ] = False,
+    project: ProjectOpt = None,
+    as_json: JsonOpt = False,
+) -> None:
+    """Set the project up: .sdd/config.toml, .sdd/.gitignore, .mcp.json, the sdd skill."""
+    g: Globals = ctx.obj if isinstance(ctx.obj, Globals) else Globals()
+    use_json = as_json or g.json
+    folder = project or g.project
+    if folder is None:
+        folder = config.find_project_root(Path.cwd()) or Path.cwd()
+    try:
+        settings = config.load(folder)
+        result = init_service.init_project(settings, force=force)
+    except SddError as err:
+        fail(err, use_json)
+    if use_json:
+        emit(result)
+        return
+    for f in result["files"]:
+        typer.echo(f"{f['action']:>8}  {f['path']}")
+    for key, globs in result["paths"].items():
+        typer.echo(f"detected  {key} = {', '.join(globs)}")
+    typer.echo("\nAdd this to CLAUDE.md:\n")
+    typer.echo(result["snippet"])

@@ -108,3 +108,36 @@ def test_mcp_is_mounted_at_slash_mcp(runtime: Runtime) -> None:
         assert "sdd" in response.text
         # the /api routes are still there
         assert client.get("/api/health").json()["ok"] is True
+
+
+def test_mcp_context_section_and_query_tools(runtime: Runtime) -> None:
+    server = create_server(runtime)
+
+    async def session() -> dict[str, Any]:
+        out: dict[str, Any] = {}
+        async with Client(server) as client:
+            out["context"] = await client.call_tool(
+                "get_context", {"task_id": "M01.1", "agent": "sonnet-1"}
+            )
+            out["section"] = await client.call_tool(
+                "read_section", {"refs": ["SPEC-01 §1–2"], "agent": "sonnet-1"}
+            )
+            out["unknown"] = await client.call_tool("read_section", {"refs": ["SPEC-01 §9"]})
+            out["query"] = await client.call_tool(
+                "query",
+                {
+                    "cypher": "MATCH (t:Task {id: $id}) RETURN t.status AS s",
+                    "params": {"id": "M01.4"},
+                },
+            )
+            out["rejected"] = await client.call_tool("query", {"cypher": "CREATE (:X)"})
+        return out
+
+    out = anyio.run(session)
+    packet = _payload(out["context"])
+    assert packet["sections"][0]["id"] == "SPEC-01#1"
+    assert [d["id"] for d in packet["deviations"]] == ["D001"]
+    assert [s["id"] for s in _payload(out["section"])["sections"]] == ["SPEC-01#1", "SPEC-01#2"]
+    assert _payload(out["unknown"])["error"]["code"] == "unknown_section"
+    assert _payload(out["query"])["rows"] == [["done"]]
+    assert _payload(out["rejected"])["error"]["code"] == "query_rejected"

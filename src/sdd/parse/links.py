@@ -14,7 +14,7 @@ from urllib.parse import unquote
 
 from markdown_it.token import Token
 
-from sdd.ids import id_from_filename, normalise
+from sdd.ids import InvalidIdError, id_from_filename, label_of, normalise
 from sdd.parse.md import id_slug, inline_children
 from sdd.parse.model import ParseResult, ParseWarning, Ref, warn
 
@@ -31,6 +31,7 @@ __all__ = [
     "refs_in_inline",
     "refs_in_markdown",
     "resolve",
+    "spec_refs",
 ]
 
 DOC_STEMS = ("design-system", "IDEA", "HANDOFF", "README", "CLAUDE")
@@ -357,6 +358,29 @@ def refs_in_inline(children: list[Token] | None, *, path: str, line: int) -> lis
 
 def refs_in_markdown(md_text: str, *, path: str, line: int) -> list[Found]:
     return refs_in_inline(inline_children(md_text), path=path, line=line)
+
+
+def spec_refs(raw: str) -> list[Ref]:
+    """The section and spec Refs one typed reference names: a canonical ID (``SPEC-03#4.2``,
+    ``SPEC-03 §4.2``, ``SPEC-03``), else the §2.2 grammar (``SPEC-02 §3–4``,
+    ``SPEC-02 `documents` ``). Empty if it names neither. Used by ``read_section`` and
+    ``log_deviation(amends)``.
+    """
+    try:
+        ident = normalise(raw)
+        label = label_of(ident)
+    except InvalidIdError:
+        label = ""
+    if label == "Section":
+        return [Ref("section", ident, 1)]
+    if label == "Spec":
+        return [Ref("spec", ident, 1)]
+    return [
+        ref
+        for found in refs_in_markdown(raw, path="", line=1)
+        for ref in found.refs
+        if ref.kind in ("section", "slug", "spec")
+    ]
 
 
 # --------------------------------------------------------------------------- other mentions (§3.6)
