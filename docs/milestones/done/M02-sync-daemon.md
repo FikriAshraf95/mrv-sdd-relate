@@ -1,6 +1,6 @@
 # M02 — Sync daemon
 
-> **Depends on:** [M01b](M01b-graph-sync.md) · **Blocks:** [M03a](../M03a-coordination-tools.md)
+> **Depends on:** [M01b](M01b-graph-sync.md) · **Blocks:** [M03a](M03a-coordination-tools.md)
 > **Read first:** [SPEC-01 §1, §4–5](../../specs/SPEC-01-architecture.md#1-process-model) · [SPEC-04 §1–2, §5.2–5.4](../../specs/SPEC-04-sync.md#1-watcher) · [SPEC-07 §1–3](../../specs/SPEC-07-dashboard-and-api.md#1-rules) · [SPEC-08 §1](../../specs/SPEC-08-cli-and-exports.md#1-rules) · [SPEC-09 §2](../../specs/SPEC-09-security.md#2-local-daemon)
 > **Model:** Opusplan. Process ownership, polling through the Windows bind mount, safe atomic write-back and loop prevention. Write `M02-plan.md` first.
 

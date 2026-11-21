@@ -18,15 +18,24 @@ from pathlib import Path
 from typing import Any
 
 import uvicorn
+from starlette.applications import Starlette
 
 from sdd.config import Settings
 from sdd.errors import SddError
+from sdd.mcp import server as mcp_server
 from sdd.service import remote
 from sdd.service.runtime import Runtime
 from sdd.sync.watcher import Watcher
 from sdd.web.api import create_app
 
-__all__ = ["check_bind", "prepare", "remove_daemon_file", "run", "write_daemon_file"]
+__all__ = [
+    "build_app",
+    "check_bind",
+    "prepare",
+    "remove_daemon_file",
+    "run",
+    "write_daemon_file",
+]
 
 log = logging.getLogger("sdd.daemon")
 
@@ -69,6 +78,12 @@ def prepare(settings: Settings, host: str = "127.0.0.1") -> Runtime:
         runtime.close()
         raise
     return runtime
+
+
+def build_app(runtime: Runtime) -> Starlette:
+    """Every ``/api`` route plus the MCP server at ``/mcp`` (SPEC-01 §5 step 4)."""
+    mcp_app = mcp_server.streamable_app(mcp_server.create_server(runtime))
+    return create_app(runtime, mcp_app=mcp_app)
 
 
 def write_daemon_file(runtime: Runtime, host: str, port: int) -> None:
@@ -139,7 +154,7 @@ def run(settings: Settings, *, host: str = "127.0.0.1", port: int = 8770) -> Non
     """Run the daemon until SIGINT or SIGTERM."""
     runtime = prepare(settings, host)
     config = uvicorn.Config(
-        create_app(runtime),
+        build_app(runtime),
         host=host,
         port=port,
         workers=1,

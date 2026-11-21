@@ -515,19 +515,23 @@ def write_meta(
 # ---------------------------------------------------------------- reading state
 
 
-def read_state(store: Store) -> GraphState:
-    """File hashes, ``Meta.last_full_sync`` and the rows the link catalog is rebuilt from."""
+def read_state(store: Store | Tx) -> GraphState:
+    """File hashes, ``Meta.last_full_sync`` and the rows the link catalog is rebuilt from.
+
+    ``store`` may be a write job's :class:`Tx` (write-back re-syncs inside its job, M03a).
+    """
+    run = store.run if isinstance(store, Tx) else store.read
     files = {
         row["path"]: row["hash"]
-        for row in store.read(
+        for row in run(
             "MATCH (f:File) WHERE f.content_hash IS NOT NULL "
             "RETURN f.path AS path, f.content_hash AS hash"
         )
     }
-    meta = store.read("MATCH (m:Meta {id: 'meta'}) RETURN m.last_full_sync AS last")
+    meta = run("MATCH (m:Meta {id: 'meta'}) RETURN m.last_full_sync AS last")
     rows: list[Row] = []
     for label in CATALOG_LABELS:
-        rows += store.read(
+        rows += run(
             f"MATCH (n:{_label(label)}) RETURN '{label}' AS label, n.id AS id, "
             "n.source_path AS source_path, n.anchor AS anchor, n.title AS title, "
             "n.spec_id AS spec_id, n.path AS path"

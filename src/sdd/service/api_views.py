@@ -1,4 +1,4 @@
-"""Read views behind the HTTP API (SPEC-07 §2 endpoints 1–4, 6; plan M02 §5.3).
+"""Read views behind the HTTP API (SPEC-07 §2 endpoints 1–6; plan M02 §5.3).
 
 Every read runs through ``runtime.store.read`` (the store's worker thread, after any queued write).
 Variable-length paths are not used: the focus expansion is a breadth-first search in Python,
@@ -14,10 +14,10 @@ from sdd.errors import SddError
 from sdd.graph import schema
 from sdd.graph.store import Row
 from sdd.ids import InvalidIdError, label_of, normalise
+from sdd.service import coordination
 from sdd.service.runtime import Runtime
-from sdd.service.status import read_status
 
-__all__ = ["graph", "health", "milestones", "node", "status"]
+__all__ = ["board", "graph", "health", "milestones", "node", "status"]
 
 DEFAULT_HIDDEN = frozenset({"Event", "Meta", "Agent"})
 MAX_LIMIT = 2000
@@ -38,24 +38,62 @@ def _shape(label: str, props: dict[str, Any]) -> dict[str, Any]:
 
 
 def health(runtime: Runtime) -> dict[str, Any]:
-    synced = runtime.synced_at
-    if synced is None:
-        rows = runtime.store.read("MATCH (m:Meta {id: 'meta'}) RETURN m.last_full_sync AS at")
-        synced = rows[0]["at"] if rows else None
     return {
         "ok": True,
         "mode": runtime.mode,
-        "synced_at": synced,
+        "synced_at": runtime.synced(),
         "schema_version": schema.SCHEMA_VERSION,
         "instance": runtime.instance,
         "project": runtime.settings.project_root.name,
     }
 
 
-def status(runtime: Runtime) -> dict[str, Any]:
-    """As ``sdd status``; the warnings are the last sync's, not a re-parse per request."""
-    warnings = runtime.last_report.warnings if runtime.last_report else []
-    return read_status(runtime.store, runtime.settings, warnings)
+def status(runtime: Runtime, agent: str | None = None) -> dict[str, Any]:
+    """As MCP ``status``; the warnings are the last sync's, not a re-parse per request."""
+    return coordination.status(runtime, agent)
+
+
+def board(runtime: Runtime, milestone: str | None = None) -> dict[str, Any]:
+    """Tasks of one milestone in columns ``todo``, ``claimed``, ``done`` (endpoint 5); the
+    default milestone is the first one not done (else the last)."""
+    rows = runtime.store.read(
+        "MATCH (m:Milestone) RETURN m.id AS id, m.title AS title, m.status AS status, "
+        "m.order AS ord ORDER BY ord"
+    )
+    if milestone:
+        ident = coordination.milestone_ident(milestone)
+        chosen = next((m for m in rows if m["id"] == ident), None)
+        if chosen is None:
+            raise SddError("milestone_not_found", f"No milestone {ident}.", details={"id": ident})
+    else:
+        chosen = next((m for m in rows if m["status"] != "done"), rows[-1] if rows else None)
+    columns: dict[str, list[dict[str, Any]]] = {"todo": [], "claimed": [], "done": []}
+    if chosen is None:
+        return {"milestone": None, "columns": columns, "synced_at": runtime.synced()}
+    tasks = runtime.store.read(
+        "MATCH (t:Task) WHERE t.milestone_id = $id RETURN t.id AS id, t.title AS title, "
+        "t.group AS grp, t.status AS status, t.claimed_by AS claimed_by, "
+        "t.claimed_at AS claimed_at, t.completed_by AS completed_by, t.done_at AS done_at, "
+        "t.order AS ord ORDER BY ord",
+        {"id": chosen["id"]},
+    )
+    for t in tasks:
+        columns.setdefault(str(t["status"]), []).append(
+            {
+                "id": t["id"],
+                "title": t["title"],
+                "group": t["grp"],
+                "claimed_by": t["claimed_by"],
+                "claimed_at": t["claimed_at"],
+                "completed_by": t["completed_by"],
+                "done_at": t["done_at"],
+            }
+        )
+    return {
+        "milestone": {"id": chosen["id"], "title": chosen["title"], "status": chosen["status"]},
+        "columns": columns,
+        "synced_at": runtime.synced(),
+    }
 
 
 def milestones(runtime: Runtime) -> list[dict[str, Any]]:

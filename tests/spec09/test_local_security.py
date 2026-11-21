@@ -71,7 +71,12 @@ def test_without_a_token_no_header_is_needed(app: TestClient) -> None:
 
 
 def test_spec09_ac03_foreign_origin_rejected(app: TestClient) -> None:
-    # the claim endpoint arrives in M03a, which extends this test; POST /api/sync is a write too
+    response = app.post(
+        "/api/tasks/M01.1/claim", json={"agent": "a"}, headers={"Origin": "https://evil.example"}
+    )
+    assert response.status_code == 403
+    assert _code(response) == "forbidden_origin"
+    assert app.get("/api/status").json()["claims"] == []  # the claim never ran
     response = app.post("/api/sync", headers={"Origin": "https://evil.example"})
     assert response.status_code == 403
     assert _code(response) == "forbidden_origin"

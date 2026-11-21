@@ -76,6 +76,8 @@ What goes where, with `detail = "task"` (default):
 - Creates the file, index row and spec notes ([SPEC-04 §5.1](SPEC-04-sync.md#51-edits)), the Deviation node with `RAISED_IN` the task and its milestone, `AMENDS`, and `AFFECTS` for `affects` entries that resolve to a File or Table (an entry that resolves to neither is `invalid_input`). The task and the affects list are written into the file, so these links are owned by it (`src` = its path) and survive a rebuild.
 - Returns `{id, path}`. Every agent whose current claim's context includes an amended section sees the deviation on its next `get_context` or `what_changed`.
 
+> **DEVIATION:** see [D004](../deviations/D004-affects-may-name-project-files-that-have-no-file-node-yet.md) — Affects may name project files that have no File node yet
+
 ## 6. `complete_milestone`
 
 Fails with `milestone_incomplete` (listing the open tasks) unless every task is done. Writes the status line with today's date, the given verification text and the deviations `RAISED_IN` the milestone (or "Deviations: none"); moves the file per [SPEC-04 §5.1](SPEC-04-sync.md#51-edits); emits `milestone_done`.
@@ -83,6 +85,8 @@ Fails with `milestone_incomplete` (listing the open tasks) unless every task is 
 ## 7. `what_changed`
 
 `since` is an ISO time, an event ID, or `"last_session"` (needs `agent`). **`"last_session"` means "since this agent last called `what_changed`"** ([DEC-003](../decisions/DEC-003-claim-liveness.md)): every call stores `Agent.last_changes_at`, and the next `last_session` call returns everything after the previous value. No session boundaries are guessed. An agent's first call returns the last 24 h with `first_session: true`. Returns grouped lists: `sections_changed` (id, title, changed_at), `specs_added`, `specs_removed`, `deviations` (logged or status changed), `tasks_completed`, `tasks_claimed`, `milestones_done`, each item with actor and time. This replaces re-reading files to see what moved.
+
+> **DEVIATION:** see [D005](../deviations/D005-what-changed-bounds-are-inclusive.md) — what_changed bounds are inclusive
 
 ## 8. Error codes
 

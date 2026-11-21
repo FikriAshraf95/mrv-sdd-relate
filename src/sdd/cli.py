@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
@@ -19,7 +20,7 @@ import typer
 
 from sdd import __version__, config
 from sdd.errors import SddError
-from sdd.service import indexing
+from sdd.service import commands, indexing
 from sdd.service import info as info_service
 from sdd.service import status as status_service
 from sdd.service import task_ids as ids_service
@@ -372,7 +373,7 @@ def daemon(
     store: StoreOpt = None,
     as_json: JsonOpt = False,
 ) -> None:
-    """Run the daemon: owns the store, watches the Markdown, serves /api (and /mcp from M03a)."""
+    """Run the daemon: owns the store, watches the Markdown, serves /api and /mcp."""
     # imported here, not at the top: uvicorn, starlette and watchdog are slow to load
     from sdd import daemon as daemon_module  # noqa: PLC0415
 
@@ -381,3 +382,224 @@ def daemon(
         daemon_module.run(settings, host=host, port=port)
     except SddError as err:
         fail(err, use_json)
+
+
+# ---------------------------------------------------------------- coordination (M03a)
+
+AgentOpt = Annotated[str, typer.Option("--agent", help="Your agent name, the same every session.")]
+OptAgentOpt = Annotated[
+    str | None, typer.Option("--agent", help="Your agent name (marks you as alive).")
+]
+TaskArg = Annotated[str, typer.Argument(help="Task ID, e.g. M02.3.")]
+
+
+def _run(use_json: bool, call: Callable[[], dict[str, Any]]) -> dict[str, Any]:
+    """Run one coordination command; print JSON with --json, exit with the error's code."""
+    try:
+        result = call()
+    except SddError as err:
+        fail(err, use_json)
+    if use_json:
+        emit(result)
+    return result
+
+
+@app.command("next")
+def next_(
+    ctx: typer.Context,
+    milestone: Annotated[
+        str | None, typer.Option("--milestone", help="Only this milestone, e.g. M02.")
+    ] = None,
+    limit: Annotated[int, typer.Option("--limit", help="At most this many tasks.")] = 10,
+    agent: OptAgentOpt = None,
+    project: ProjectOpt = None,
+    store: StoreOpt = None,
+    as_json: JsonOpt = False,
+) -> None:
+    """Claimable tasks in order, with the claimed tasks they overlap."""
+    settings, use_json = resolve(ctx, project, store, as_json)
+    result = _run(use_json, lambda: commands.next_tasks(settings, milestone, limit, agent))
+    if use_json:
+        return
+    if not result["tasks"]:
+        typer.echo("No claimable tasks.")
+    for t in result["tasks"]:
+        overlap = ", ".join(f"{o['id']} ({o['claimed_by']})" for o in t["overlaps"])
+        typer.echo(f"{t['id']} {t['title']}" + (f"  [overlaps {overlap}]" if overlap else ""))
+
+
+@app.command()
+def claim(
+    ctx: typer.Context,
+    task: TaskArg,
+    agent: AgentOpt,
+    project: ProjectOpt = None,
+    store: StoreOpt = None,
+    as_json: JsonOpt = False,
+) -> None:
+    """Claim a task atomically (exit 4 if another agent holds it)."""
+    settings, use_json = resolve(ctx, project, store, as_json)
+    result = _run(use_json, lambda: commands.claim(settings, task, agent))
+    if not use_json:
+        stale = result.get("released_stale_claim_of")
+        extra = f" (took over the stale claim of {stale})" if stale else ""
+        typer.echo(f"{result['task']} claimed by {result['agent']}{extra}")
+
+
+@app.command()
+def release(
+    ctx: typer.Context,
+    task: TaskArg,
+    agent: AgentOpt,
+    reason: Annotated[str | None, typer.Option("--reason", help="Why it is given back.")] = None,
+    force: Annotated[
+        bool, typer.Option("--force", help="Free a claim another agent holds.")
+    ] = False,
+    project: ProjectOpt = None,
+    store: StoreOpt = None,
+    as_json: JsonOpt = False,
+) -> None:
+    """Give a claim back; --force frees another agent's claim."""
+    settings, use_json = resolve(ctx, project, store, as_json)
+    result = _run(use_json, lambda: commands.release(settings, task, agent, reason, force))
+    if use_json:
+        return
+    if result["released"]:
+        typer.echo(f"{result['task']} released (was claimed by {result['claimed_by']})")
+    else:
+        typer.echo(f"{result['task']} was not claimed")
+
+
+@app.command()
+def done(
+    ctx: typer.Context,
+    task: TaskArg,
+    agent: AgentOpt,
+    notes: Annotated[str | None, typer.Option("--notes", help="What was done.")] = None,
+    files: Annotated[
+        list[str] | None, typer.Option("--files", help="A file touched (repeatable).")
+    ] = None,
+    commit: Annotated[str | None, typer.Option("--commit", help="Git SHA of the work.")] = None,
+    project: ProjectOpt = None,
+    store: StoreOpt = None,
+    as_json: JsonOpt = False,
+) -> None:
+    """Complete a task you hold: tick its box and record the outcome."""
+    settings, use_json = resolve(ctx, project, store, as_json)
+    result = _run(
+        use_json,
+        lambda: commands.done(
+            settings, task, agent, notes=notes, files_touched=files, commit=commit
+        ),
+    )
+    if use_json:
+        return
+    typer.echo(f"{result['task']} done ({result['path']})")
+    for t in result["unblocked"]:
+        typer.echo(f"  unblocked {t['id']} {t['title']}")
+
+
+@app.command()
+def deviation(
+    ctx: typer.Context,
+    task: Annotated[str, typer.Argument(help="Task ID the deviation is raised in.")],
+    agent: AgentOpt,
+    title: Annotated[str, typer.Option("--title", help="One line.")],
+    amends: Annotated[
+        list[str], typer.Option("--amends", help="A spec reference, e.g. SPEC-04 §5.1.")
+    ],
+    spec_says: Annotated[str, typer.Option("--spec-says", help="What the spec says.")],
+    does: Annotated[str, typer.Option("--does", help="What the implementation does.")],
+    why: Annotated[str, typer.Option("--why", help="Why it differs.")],
+    consequences: Annotated[
+        str | None, typer.Option("--consequences", help="What follows from it.")
+    ] = None,
+    affects: Annotated[
+        list[str] | None, typer.Option("--affects", help="A file path or table (repeatable).")
+    ] = None,
+    resolved: Annotated[
+        bool, typer.Option("--resolved", help="Status: resolved, spec updated.")
+    ] = False,
+    project: ProjectOpt = None,
+    store: StoreOpt = None,
+    as_json: JsonOpt = False,
+) -> None:
+    """Log a deviation: the file, the index row and the spec notes in one change."""
+    settings, use_json = resolve(ctx, project, store, as_json)
+    result = _run(
+        use_json,
+        lambda: commands.deviation(
+            settings,
+            task,
+            agent,
+            title=title,
+            spec_says=spec_says,
+            implementation_does=does,
+            why=why,
+            consequences=consequences,
+            amends=amends,
+            affects=affects,
+            status="resolved" if resolved else "open",
+        ),
+    )
+    if not use_json:
+        typer.echo(f"{result['id']} logged: {result['path']}")
+
+
+@app.command("milestone-done")
+def milestone_done(
+    ctx: typer.Context,
+    milestone: Annotated[str, typer.Argument(help="Milestone ID, e.g. M02.")],
+    agent: AgentOpt,
+    verification: Annotated[
+        str, typer.Option("--verification", help="How acceptance was verified.")
+    ],
+    project: ProjectOpt = None,
+    store: StoreOpt = None,
+    as_json: JsonOpt = False,
+) -> None:
+    """Write the DONE status line and move the milestone to done/."""
+    settings, use_json = resolve(ctx, project, store, as_json)
+    result = _run(
+        use_json, lambda: commands.milestone_done(settings, milestone, agent, verification)
+    )
+    if use_json:
+        return
+    typer.echo(result["status_line"])
+    if result["moved_from"]:
+        typer.echo(f"moved {result['moved_from']} -> {result['path']}")
+
+
+CHANGE_GROUPS = (
+    "sections_changed",
+    "specs_added",
+    "specs_removed",
+    "deviations",
+    "tasks_claimed",
+    "tasks_completed",
+    "milestones_done",
+)
+
+
+@app.command()
+def changes(
+    ctx: typer.Context,
+    since: Annotated[
+        str, typer.Option("--since", help="An ISO time, an event ID or last_session.")
+    ],
+    agent: OptAgentOpt = None,
+    project: ProjectOpt = None,
+    store: StoreOpt = None,
+    as_json: JsonOpt = False,
+) -> None:
+    """What changed since a time, an event, or your last call."""
+    settings, use_json = resolve(ctx, project, store, as_json)
+    result = _run(use_json, lambda: commands.changes_since(settings, since, agent))
+    if use_json:
+        return
+    first = " (first session)" if result["first_session"] else ""
+    typer.echo(f"since {result['since']}{first}")
+    for group in CHANGE_GROUPS:
+        for item in result[group]:
+            title = f" {item['title']}" if item.get("title") else ""
+            typer.echo(f"{item['at']} {group} {item['id']}{title} ({item['actor']})")

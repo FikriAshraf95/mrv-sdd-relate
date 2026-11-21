@@ -80,6 +80,13 @@ class Runtime:
             publish_changed(self.events, report.changed_ids)
         return indexing.report_dict(self.settings, report, counts)
 
+    def synced(self) -> str | None:
+        """The last sync time (``synced_at`` on every tool result, SPEC-05 §1 rule 4)."""
+        if self.synced_at is not None:
+            return self.synced_at
+        rows = self.store.read("MATCH (m:Meta {id: 'meta'}) RETURN m.last_full_sync AS at")
+        return rows[0]["at"] if rows else None
+
     def on_batch(self, batch: Batch) -> None:
         """Watcher callback: sync only when the batch touched an SDD document."""
         if not any(p in batch.sdd_files or p in self.tracked for p in batch.paths):

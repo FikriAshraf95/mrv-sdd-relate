@@ -16,7 +16,7 @@ import hashlib
 import os
 import posixpath
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
@@ -60,6 +60,7 @@ __all__ = [
     "ignored_path",
     "reset",
     "sync",
+    "sync_tx",
 ]
 
 # Phase 1 order (SPEC-04 §2 step 4).
@@ -437,8 +438,38 @@ def sync(
     something. ``cache`` lets unchanged files skip parsing. The caller serializes calls.
     """
     analysis = analyse(settings, cache=cache, files=files)
+    report = _apply(store.write, upsert.read_state(store), analysis, settings, full=full)
+    if full or report.changed or report.removed or report.relinked:
+        store.checkpoint()  # no flush for a no-op watcher batch
+    return report
+
+
+def sync_tx(tx: Tx, settings: Settings, *, cache: ParseCache | None = None) -> SyncReport:
+    """The same sync of every SDD file, inside the caller's write job (one transaction).
+
+    Write-back calls this after writing Markdown (SPEC-04 §5.2, §5.4): the files it wrote, and
+    any other edit not synced yet, are re-parsed and stored with their new hashes before the job
+    commits, so the watcher finds nothing to do. A move is a removal plus an addition here. No
+    checkpoint (the store flushes after the next batch) and ``Meta.last_full_sync`` is unchanged.
+    """
+    analysis = analyse(settings, cache=cache)
+
+    def run_here(job: Callable[[Tx], Any]) -> Any:
+        return job(tx)
+
+    return _apply(run_here, upsert.read_state(tx), analysis, settings, full=False)
+
+
+def _apply(
+    run_job: Callable[[Callable[[Tx], Any]], Any],
+    state: upsert.GraphState,
+    analysis: Analysis,
+    settings: Settings,
+    *,
+    full: bool,
+) -> SyncReport:
+    """Phase 1, removals, phase 2 and Meta, each step through ``run_job`` (a job or the Tx)."""
     now = settings.now_iso()
-    state = upsert.read_state(store)
     initial = state.last_full_sync is None
 
     by_path = {f.path: f for f in analysis.files}
@@ -464,7 +495,8 @@ def sync(
                 writeback=settings.writeback,
             )
 
-        return store.write(job)
+        result: NodeChanges = run_job(job)
+        return result
 
     def removal(path: str) -> NodeChanges:
         def job(tx: Tx) -> NodeChanges:
@@ -472,9 +504,10 @@ def sync(
                 tx, path, keep_ids=analysis.keep_ids, now=now, initial=initial
             )
 
-        return store.write(job)
+        result: NodeChanges = run_job(job)
+        return result
 
-    def phase2_job(f: SourceFile) -> int:
+    def phase2_job(f: SourceFile) -> None:
         res = analysis.resolved[f.path]
 
         def job(tx: Tx) -> int:
@@ -482,7 +515,7 @@ def sync(
                 tx, f.path, res.rels, res.unresolved, content_hash=f.content_hash
             )
 
-        return store.write(job)
+        run_job(job)
 
     for f in changed:
         totals.extend(phase1(f))
@@ -500,10 +533,7 @@ def sync(
             last_full_sync=now if full else None,
         )
 
-    store.write(meta)
-    wrote = bool(changed or removed or phase2)
-    if full or wrote:  # no flush for a no-op watcher batch
-        store.checkpoint()
+    run_job(meta)
     changed_ids = {*totals.created, *totals.updated, *totals.deleted}
     changed_ids.update(f"file:{f.path}" for f in changed)
     changed_ids.update(f"file:{p}" for p in removed)

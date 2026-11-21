@@ -1,6 +1,6 @@
 # M03b — Context packet, query guard and Claude Code integration
 
-> **Depends on:** [M03a](M03a-coordination-tools.md) · **Blocks:** [M04a](M04a-code-and-git.md), [M05a](M05a-dashboard-core.md)
+> **Depends on:** [M03a](done/M03a-coordination-tools.md) · **Blocks:** [M04a](M04a-code-and-git.md), [M05a](M05a-dashboard-core.md)
 > **Read first:** [SPEC-05 §4, §9–10](../specs/SPEC-05-agent-tools.md#4-get_context) · [SPEC-03 §2.2](../specs/SPEC-03-markdown-parsing.md#22-spec-reference-grammar) · [SPEC-09 §3](../specs/SPEC-09-security.md#3-query-guard) · [SPEC-07 §2](../specs/SPEC-07-dashboard-and-api.md#2-endpoint-index) · [SPEC-08 §2](../specs/SPEC-08-cli-and-exports.md#2-commands)
 > **Model:** Opus. The context packet's selection and truncation rules, and the query guard.
 > **Split from:** M03 (2026-11-21)

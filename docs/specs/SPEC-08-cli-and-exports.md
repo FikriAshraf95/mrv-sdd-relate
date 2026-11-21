@@ -22,10 +22,10 @@
 | `sdd status` | Milestones, task counts, claims, warnings, unresolved links, unticked tasks with COMPLETES commits |
 | `sdd doctor` | Reads the Markdown only and never opens the store, so it works on a read-only checkout. Every parser warning and unresolved link, deviation index mismatches, duplicate IDs; exit 1 if any `error` |
 | `sdd ids --write [--milestone M17]` | Add stable task IDs to legacy checkbox lines ([SPEC-03 §4.2](SPEC-03-markdown-parsing.md#42-task-ids)); shows a diff and asks unless `--yes` |
-| `sdd next` · `sdd claim T --agent A` · `sdd release T --agent A [--force]` · `sdd done T --agent A [--notes] [--files]` | The coordination tools for humans and scripts |
-| `sdd deviation T --agent A --title … --amends REF… --spec-says … --does … --why … [--consequences …] [--affects …]` · `sdd milestone-done M --agent A --verification TEXT` | `log_deviation` and `complete_milestone` ([SPEC-05 §5–6](SPEC-05-agent-tools.md#5-log_deviation)) |
+| `sdd next [--milestone M] [--limit N] [--agent A]` · `sdd claim T --agent A` · `sdd release T --agent A [--reason …] [--force]` · `sdd done T --agent A [--notes …] [--files PATH]… [--commit SHA]` | The coordination tools for humans and scripts |
+| `sdd deviation T --agent A --title … --amends REF… --spec-says … --does … --why … [--consequences …] [--affects …] [--resolved]` · `sdd milestone-done M --agent A --verification TEXT` | `log_deviation` and `complete_milestone` ([SPEC-05 §5–6](SPEC-05-agent-tools.md#5-log_deviation)) |
 | `sdd context T [--detail milestone]` · `sdd section REF` | Print a context packet or sections |
-| `sdd impact TARGET` · `sdd explain PATH` · `sdd find …` · `sdd changes --since X` | [SPEC-06](SPEC-06-code-context.md) and `what_changed` |
+| `sdd impact TARGET` · `sdd explain PATH` · `sdd find …` · `sdd changes --since X [--agent A]` | [SPEC-06](SPEC-06-code-context.md) and `what_changed` |
 | `sdd query CYPHER` | Read-only Cypher through the guard |
 | `sdd export …` | [§3](#3-exports-and-snapshots) |
 | `sdd snapshot [--out DIR]` | Checkpoint and write the committed copies ([§3](#3-exports-and-snapshots)) |
