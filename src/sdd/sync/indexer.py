@@ -2,8 +2,12 @@
 
 ``analyse`` is pure with respect to the store: it discovers, reads, hashes and parses every SDD
 file, drops duplicate IDs, cross-checks the deviation index and resolves every link against one
-catalog. ``sdd doctor`` runs only this. ``full_sync`` adds the store: it decides what changed,
+catalog. ``sdd doctor`` runs only this. ``sync`` adds the store: it decides what changed,
 runs phase 1 (nodes) and phase 2 (relationships), handles removals and writes Meta.
+
+M02 adds the parse cache (unchanged files are not re-parsed, SPEC-04 §2 step 3), the ignore and
+classify helpers the watcher shares with ``discover``, and ``sync(full=False)`` for watcher
+batches (plan M02 §2).
 """
 
 from __future__ import annotations
@@ -13,7 +17,7 @@ import os
 import posixpath
 import re
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -41,20 +45,28 @@ from sdd.parse.model import warn
 
 __all__ = [
     "Analysis",
+    "Classifier",
+    "ParseCache",
     "Resolved",
     "SourceFile",
     "SyncReport",
     "analyse",
     "catalog_fingerprint",
+    "classify",
     "discover",
     "file_hash",
     "full_sync",
+    "ignored_dir",
+    "ignored_path",
     "reset",
+    "sync",
 ]
 
 # Phase 1 order (SPEC-04 §2 step 4).
 KIND_ORDER = ("spec", "milestone", "plan", "deviation", "deviation_index", "doc")
 _PRUNED_DIRS = frozenset({"node_modules", "__pycache__"})
+# path -> (content hash, kind, pristine parse result); see analyse()
+ParseCache = dict[str, tuple[str, str, ParseResult]]
 _PLAN_NAME = re.compile(r"^M\d+[a-z]?-plan\.md$")
 _MILESTONE_NAME = re.compile(r"^M\d+[a-z]?-.+\.md$")
 _PRIMARY_LABELS = ("Spec", "Milestone", "Deviation", "Doc")
@@ -81,18 +93,51 @@ def _spec(globs: Iterable[str]) -> pathspec.PathSpec[Any]:
     return pathspec.PathSpec.from_lines("gitignore", [g if "/" in g else f"/{g}" for g in globs])
 
 
+def ignored_dir(name: str) -> bool:
+    """Whether a folder or file name is skipped everywhere (SPEC-04 §1): dot names (``.sdd/``,
+    ``.git/``), ``node_modules``, ``__pycache__``. The watcher and ``discover`` share this.
+
+    # M04a: replace or extend with the code walker's ``.gitignore`` rules.
+    """
+    return name.startswith(".") or name in _PRUNED_DIRS
+
+
+def ignored_path(rel: str) -> bool:
+    """Whether any segment of a project-relative POSIX path is ignored."""
+    return any(ignored_dir(part) for part in rel.split("/"))
+
+
+class Classifier:
+    """Classify project-relative paths against the SDD globs; the pathspecs are built once."""
+
+    def __init__(self, settings: Settings) -> None:
+        self._specs = {key: _spec(globs) for key, globs in settings.paths.items()}
+
+    def classify(self, rel: str) -> str | None:
+        """The SDD kind of ``rel`` (a ``.md`` file under no ignored folder), else ``None``."""
+        name = rel.rsplit("/", 1)[-1]
+        if not name.endswith(".md") or ignored_path(rel):
+            return None
+        return _classify(rel, name, self._specs)
+
+
+def classify(settings: Settings, rel: str) -> str | None:
+    """One-off :meth:`Classifier.classify`; hold a ``Classifier`` when classifying many paths."""
+    return Classifier(settings).classify(rel)
+
+
 def discover(settings: Settings) -> dict[str, str]:
     """``{project-relative POSIX path: kind}`` for every SDD Markdown file, sorted by path."""
-    specs = {key: _spec(globs) for key, globs in settings.paths.items()}
+    classifier = Classifier(settings)
     root = settings.project_root
     found: dict[str, str] = {}
     for folder, dirs, names in os.walk(root):
-        dirs[:] = sorted(d for d in dirs if not d.startswith(".") and d not in _PRUNED_DIRS)
+        dirs[:] = sorted(d for d in dirs if not ignored_dir(d))
         for name in names:
             if not name.endswith(".md"):
                 continue
             rel = (Path(folder) / name).relative_to(root).as_posix()
-            kind = _classify(rel, name, specs)
+            kind = classifier.classify(rel)
             if kind:
                 found[rel] = kind
     return dict(sorted(found.items()))
@@ -154,13 +199,48 @@ class Analysis:
         return sorted(self.files, key=lambda f: (KIND_ORDER.index(f.kind), f.path))
 
 
-def analyse(settings: Settings) -> Analysis:
-    """Discover, read, parse and resolve every SDD file. Reads Markdown only; no store."""
-    files: list[SourceFile] = []
-    for path, kind in discover(settings).items():
-        data = (settings.project_root / path).read_bytes()
-        text = data.decode("utf-8", errors="replace")
-        files.append(SourceFile(path, kind, file_hash(data), _PARSERS[kind](path, text)))
+def analyse(
+    settings: Settings,
+    *,
+    cache: ParseCache | None = None,
+    files: Mapping[str, str] | None = None,
+) -> Analysis:
+    """Discover, read, parse and resolve every SDD file. Reads Markdown only; no store.
+
+    ``files`` (``{path: kind}``, the watcher's SDD set) replaces discovery. With a ``cache``, a
+    file whose hash and kind are unchanged is not re-parsed (SPEC-04 §2 step 3); resolution still
+    runs over every file. Each analysis works on a copy of the cached result, because
+    ``_drop_duplicates`` reassigns ``nodes`` and ``rels``.
+    """
+    found = discover(settings) if files is None else dict(sorted(files.items()))
+    files_: list[SourceFile] = []
+    for path, kind in found.items():
+        try:
+            data = (settings.project_root / path).read_bytes()
+        except FileNotFoundError:
+            continue  # vanished after the watcher's snapshot; the next batch reports it
+        digest = file_hash(data)
+        hit = cache.get(path) if cache is not None else None
+        if hit is not None and hit[0] == digest and hit[1] == kind:
+            pristine = hit[2]
+        else:
+            pristine = _PARSERS[kind](path, data.decode("utf-8", errors="replace"))
+            if cache is not None:
+                cache[path] = (digest, kind, pristine)
+        result = replace(
+            pristine,
+            nodes=list(pristine.nodes),
+            rels=list(pristine.rels),
+            warnings=list(pristine.warnings),
+        )
+        files_.append(SourceFile(path, kind, digest, result))
+    if cache is not None:
+        for gone in set(cache) - {f.path for f in files_}:
+            del cache[gone]
+    return _analyse_files(files_)
+
+
+def _analyse_files(files: list[SourceFile]) -> Analysis:
 
     warnings = [w for f in files for w in f.result.warnings]
     warnings += _drop_duplicates(files)
@@ -330,6 +410,7 @@ class SyncReport:
     created: int
     updated: int
     deleted: int
+    changed_ids: list[str] = field(default_factory=list)  # node IDs and file:<path> that changed
 
 
 def reset(store: Store) -> None:
@@ -341,9 +422,21 @@ def reset(store: Store) -> None:
     store.write(job)
 
 
-def full_sync(store: Store, settings: Settings) -> SyncReport:
-    """One full scan: skip unchanged files, upsert changed ones, remove vanished ones."""
-    analysis = analyse(settings)
+def sync(
+    store: Store,
+    settings: Settings,
+    *,
+    full: bool = True,
+    files: Mapping[str, str] | None = None,
+    cache: ParseCache | None = None,
+) -> SyncReport:
+    """Skip unchanged files, upsert changed ones, remove vanished ones.
+
+    ``full`` marks a startup or requested scan: it writes ``Meta.last_full_sync`` and checkpoints.
+    A watcher batch passes ``full=False`` and its SDD file set; it checkpoints only when it wrote
+    something. ``cache`` lets unchanged files skip parsing. The caller serializes calls.
+    """
+    analysis = analyse(settings, cache=cache, files=files)
     now = settings.now_iso()
     state = upsert.read_state(store)
     initial = state.last_full_sync is None
@@ -404,11 +497,16 @@ def full_sync(store: Store, settings: Settings) -> SyncReport:
             tx,
             schema_version=schema.SCHEMA_VERSION,
             project_name=settings.project_root.name,
-            last_full_sync=now,
+            last_full_sync=now if full else None,
         )
 
     store.write(meta)
-    store.checkpoint()
+    wrote = bool(changed or removed or phase2)
+    if full or wrote:  # no flush for a no-op watcher batch
+        store.checkpoint()
+    changed_ids = {*totals.created, *totals.updated, *totals.deleted}
+    changed_ids.update(f"file:{f.path}" for f in changed)
+    changed_ids.update(f"file:{p}" for p in removed)
     return SyncReport(
         initial=initial,
         scanned=len(analysis.files),
@@ -421,4 +519,10 @@ def full_sync(store: Store, settings: Settings) -> SyncReport:
         created=len(totals.created),
         updated=len(totals.updated),
         deleted=len(totals.deleted),
+        changed_ids=sorted(changed_ids),
     )
+
+
+def full_sync(store: Store, settings: Settings) -> SyncReport:
+    """``sync(full=True)`` (the M01b name, kept for the CLI path and the tests)."""
+    return sync(store, settings)

@@ -6,15 +6,23 @@ from typing import Any
 
 from sdd.config import Settings
 from sdd.graph import schema, store
+from sdd.service import remote
 
 
 def info(settings: Settings) -> dict[str, Any]:
     """Describe the project's store without writing anything.
 
     A missing store reports zero counts. Without a daemon the store is opened read-only, which
-    works next to a running writer too. Daemon detection arrives with the daemon (M02).
+    works next to a running writer too. ``daemon`` is ``{port, pid, started_at}`` while a daemon
+    runs for the default store, else ``None`` (SPEC-08 §2).
     """
     path = settings.store_path
+    running = remote.detect(settings) if remote.routes_through_daemon(settings) else None
+    daemon = (
+        {"port": running.port, "pid": running.pid, "started_at": running.started_at}
+        if running
+        else None
+    )
     present = store.exists(path)
     counts = schema.Counts(nodes={}, relationships={})
     store_version: int | None = None
@@ -27,7 +35,7 @@ def info(settings: Settings) -> dict[str, Any]:
         "project": str(settings.project_root),
         "store": path,
         "store_exists": present,
-        "daemon": None,
+        "daemon": daemon,
         "schema_version": schema.SCHEMA_VERSION,
         "store_schema_version": store_version,
         "nodes": counts.nodes,

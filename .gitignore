@@ -28,3 +28,6 @@ bench/results/*.tmp
 
 # claude local settings
 .claude/settings.local.json
+
+# polling benchmark scratch (scripts/measure_poll.py deletes it)
+/_pollbench/

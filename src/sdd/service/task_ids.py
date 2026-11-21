@@ -10,6 +10,7 @@ from typing import Any
 from sdd.config import Settings
 from sdd.errors import SddError
 from sdd.ids import InvalidIdError, id_from_filename, normalise
+from sdd.service import remote
 from sdd.sync import indexer, writeback
 
 
@@ -62,7 +63,11 @@ def plan_ids(settings: Settings, milestone: str | None = None) -> list[IdPlan]:
 
 
 def write_ids(settings: Settings, plans: list[IdPlan]) -> list[dict[str, Any]]:
-    """Apply a plan with the atomic write helper (line endings kept). Does not sync."""
+    """Apply a plan with the atomic write helper (line endings kept). Does not sync.
+
+    Refuses with ``daemon_running`` while a daemon owns the project (SPEC-01 §1 rule 3).
+    """
+    remote.ensure_no_daemon(settings, check_store=True)
     done = []
     for plan in plans:
         writeback.atomic_write(settings.project_root / plan.path, plan.new_text)

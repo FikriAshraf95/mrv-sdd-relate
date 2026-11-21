@@ -10,14 +10,24 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
-from collections.abc import Callable, Iterator, Sequence
+import time
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
+from urllib.parse import urlsplit
 
 import pytest
+from starlette.testclient import TestClient
 
+from sdd import config
+from sdd.config import Settings
+from sdd.daemon import write_daemon_file
 from sdd.graph import schema
 from sdd.graph.store import Store
+from sdd.service import remote
+from sdd.service.runtime import Runtime
+from sdd.web.api import create_app
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -117,3 +127,97 @@ def store(tmp_path: Path) -> Iterator[Store]:
     schema.ensure(st)
     yield st
     st.close()
+
+
+# ---------------------------------------------------------------- daemon fixtures (M02)
+
+DAEMON_ENV = {
+    "SDD_WATCH": "poll",
+    "SDD_POLL_INTERVAL": "0.1",
+    "SDD_POLL_CODE_INTERVAL": "0.1",
+}
+FAKE_PORT = 8770
+
+MakeRuntime = Callable[..., Runtime]
+
+
+def daemon_settings(root: Path, **env: str) -> Settings:
+    """Settings for a daemon test: default store inside the project, fast polling."""
+    return config.load(root, None, env={**DAEMON_ENV, **env})
+
+
+@pytest.fixture
+def make_runtime(project: MakeProject) -> Iterator[MakeRuntime]:
+    """Factory: ``make_runtime("tool_style", toml=None, SDD_TOKEN="x")`` → a started Runtime.
+
+    Each runtime owns a fresh copy of the fixture project and a real store; all are closed after.
+    """
+    opened: list[Runtime] = []
+
+    def make(name: str = "tool_style", *, toml: str | None = None, **env: str) -> Runtime:
+        root = project(name)
+        if toml is not None:
+            (root / ".sdd").mkdir(exist_ok=True)
+            (root / ".sdd" / "config.toml").write_text(toml, encoding="utf-8")
+        settings = daemon_settings(root, **env)
+        runtime = Runtime.open(settings)
+        opened.append(runtime)
+        runtime.sync(full=True)
+        return runtime
+
+    yield make
+    for runtime in opened:
+        runtime.close()
+
+
+@pytest.fixture
+def runtime(make_runtime: MakeRuntime) -> Runtime:
+    return make_runtime()
+
+
+@pytest.fixture
+def app(runtime: Runtime) -> TestClient:
+    """A test client for the API. ``Host: localhost:8770`` so the loopback Host check passes."""
+    return TestClient(create_app(runtime), base_url=f"http://localhost:{FAKE_PORT}")
+
+
+@dataclass
+class FakeDaemon:
+    client: TestClient
+    seen: list[str] = field(default_factory=list)  # "METHOD /path" of every call the CLI made
+
+
+@pytest.fixture
+def fake_daemon(runtime: Runtime, monkeypatch: pytest.MonkeyPatch) -> FakeDaemon:
+    """Make ``remote.TRANSPORT`` reach ``runtime``'s API in-process and write its ``daemon.json``.
+
+    No socket is opened. Any other port refuses the connection.
+    """
+    client = TestClient(create_app(runtime), base_url=f"http://localhost:{FAKE_PORT}")
+    fake = FakeDaemon(client)
+
+    def transport(
+        method: str, url: str, headers: Mapping[str, str], body: bytes | None, timeout: float
+    ) -> tuple[int, Any]:
+        parts = urlsplit(url)
+        if parts.port != FAKE_PORT:
+            raise ConnectionRefusedError(url)
+        target = parts.path + (f"?{parts.query}" if parts.query else "")
+        fake.seen.append(f"{method} {parts.path}")
+        # the client sets Host from its base_url, like urllib does for 127.0.0.1:<port>
+        response = client.request(method, target, headers=dict(headers), content=body)
+        return response.status_code, response.json() if response.content else None
+
+    monkeypatch.setattr(remote, "TRANSPORT", transport)
+    write_daemon_file(runtime, "127.0.0.1", FAKE_PORT)
+    return fake
+
+
+def wait_for(check: Callable[[], bool], timeout: float = 5.0, step: float = 0.05) -> bool:
+    """Poll ``check`` until it is true or ``timeout`` passes (watcher tests: no fixed sleeps)."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if check():
+            return True
+        time.sleep(step)
+    return check()

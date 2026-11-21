@@ -21,7 +21,7 @@ docs/specs/*.md, docs/milestones/*.md, docs/deviations/*.md, code, .git   ← hu
 Rules:
 1. **One writable connection per store, in one process: the daemon.** Relate is a single-process engine. A second writer gets `storage locked` (verified).
 2. MCP uses **HTTP on localhost, never stdio**. stdio would start one server per Claude Code session, and they would fight over the store.
-3. The CLI never opens the store for writing while the daemon runs. It detects the daemon through `.sdd/daemon.json` (pid, port, token hash, started_at) **plus a health call**; the file alone proves nothing, because PIDs are reused (especially inside containers) and a killed daemon leaves the file behind. The authority for "a writer exists" is Relate's own writer lock (`storage locked`). Read commands then call the API. Without a daemon, read commands open a read-only snapshot, and write commands (`sync`, `ids --write`) open the store themselves.
+3. The CLI never opens the store for writing while the daemon runs. It detects the daemon through `.sdd/daemon.json` (pid, host, port, instance, token hash, started_at, project) **plus a health call** whose `instance` must equal the file's; the file alone proves nothing, because PIDs are reused (especially inside containers) and a killed daemon leaves the file behind. The authority for "a writer exists" is Relate's own writer lock (`storage locked`). Read commands then call the API. Without a daemon, read commands open a read-only snapshot, and write commands (`sync`, `ids --write`) open the store themselves.
 4. `sdd public` opens `read_only=True` and reopens when the store's `manifest.json` changes (checked every 2 s). This is how the hosted demo follows the replay writer, because Python has no live WAL follow.
 
 ## 2. Repo layout
@@ -85,7 +85,7 @@ Enforced by `import-linter` contracts in CI. `relate` appears only in `graph/sto
 2. Open the store writable. `storage locked` means another process writes it: exit with `daemon_running`. Then create indexes ([SPEC-02 §6](SPEC-02-graph-schema.md#6-indexes-and-constraints)).
 3. **Startup sync:** full scan comparing content hashes, then git sync ([SPEC-04 §2](SPEC-04-sync.md#2-incremental-sync)).
 4. Start the watcher, the git poller and the HTTP server (Uvicorn, one worker; MCP mounted with `MCPServer.streamable_http_app()` from `mcp` 2.x).
-5. Write `.sdd/daemon.json`. On SIGTERM: stop the watcher, drain the write queue, checkpoint, close, remove `daemon.json`.
+5. Write `.sdd/daemon.json` (`{pid, host, port, instance, started_at, token_sha256, project}`; `instance` is a random ID per start, answered by `/api/health`) once the socket is bound. On SIGTERM: stop the watcher, drain the write queue, checkpoint, close, remove `daemon.json`.
 
 ## 6. Dependencies
 

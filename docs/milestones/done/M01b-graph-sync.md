@@ -1,6 +1,6 @@
 # M01b — Graph upsert and full sync
 
-> **Depends on:** [M01a](M01a-markdown-parsers.md) · **Blocks:** [M02](../M02-sync-daemon.md)
+> **Depends on:** [M01a](M01a-markdown-parsers.md) · **Blocks:** [M02](M02-sync-daemon.md)
 > **Read first:** [SPEC-02 §1–2, §4–5, §7](../../specs/SPEC-02-graph-schema.md#1-ids-and-common-properties) · [SPEC-04 §2–3](../../specs/SPEC-04-sync.md#2-incremental-sync) · [SPEC-08 §1–2](../../specs/SPEC-08-cli-and-exports.md#1-rules) · [SPEC-10 §4](../../specs/SPEC-10-testing-and-benchmark.md#4-invariant-suite)
 > **Model:** Opusplan. Two-phase transactional upserts, `src` ownership and the Task upsert rules that keep graph-only state. Write `M01b-plan.md` first.
 > **Split from:** M01 (2026-11-21)

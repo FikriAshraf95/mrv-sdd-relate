@@ -157,7 +157,7 @@ def info(
     lines = [
         ("project", result["project"]),
         ("store", f"{result['store']}{state}"),
-        ("daemon", "none"),
+        ("daemon", _daemon_line(result["daemon"])),
         ("schema version", f"{result['schema_version']} (store: {stored or 'not set'})"),
         ("nodes", str(result["total_nodes"])),
         *((f"  {label}", str(n)) for label, n in result["nodes"].items()),
@@ -352,3 +352,32 @@ def ids(
         typer.echo(p.diff.rstrip("\n"))
     if written:
         typer.echo(f"wrote {sum(w['added'] for w in written)} task IDs in {len(written)} file(s)")
+
+
+# ---------------------------------------------------------------- daemon (M02)
+
+
+def _daemon_line(daemon: dict[str, Any] | None) -> str:
+    return "none" if daemon is None else f"running on :{daemon['port']} (pid {daemon['pid']})"
+
+
+@app.command()
+def daemon(
+    ctx: typer.Context,
+    host: Annotated[
+        str, typer.Option("--host", help="Address to bind (beyond loopback: SPEC-09 §2 rule 1).")
+    ] = "127.0.0.1",
+    port: Annotated[int, typer.Option("--port", help="Port to listen on.")] = 8770,
+    project: ProjectOpt = None,
+    store: StoreOpt = None,
+    as_json: JsonOpt = False,
+) -> None:
+    """Run the daemon: owns the store, watches the Markdown, serves /api (and /mcp from M03a)."""
+    # imported here, not at the top: uvicorn, starlette and watchdog are slow to load
+    from sdd import daemon as daemon_module  # noqa: PLC0415
+
+    settings, use_json = resolve(ctx, project, store, as_json)
+    try:
+        daemon_module.run(settings, host=host, port=port)
+    except SddError as err:
+        fail(err, use_json)

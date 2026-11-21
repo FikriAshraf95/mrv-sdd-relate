@@ -8,6 +8,7 @@ from sdd.config import Settings
 from sdd.graph import schema
 from sdd.graph.store import Store
 from sdd.parse import ParseWarning
+from sdd.service import remote
 from sdd.sync import indexer
 
 SEVERITIES = ("error", "warning", "info")
@@ -27,18 +28,10 @@ def by_severity(warnings: list[ParseWarning]) -> dict[str, int]:
     return {s: sum(1 for w in warnings if w.severity == s) for s in SEVERITIES}
 
 
-def sync(settings: Settings, *, reset: bool = False) -> dict[str, Any]:
-    """One full sync into the store (``daemon_running`` if another process holds it).
-
-    ``reset`` empties the store in place first (D002); graph-only state is lost. An in-memory
-    store is new anyway, so nothing is written to disk.
-    """
-    with Store.open(settings.store_path) as store:
-        schema.ensure(store)
-        if reset:
-            indexer.reset(store)
-        report = indexer.full_sync(store, settings)
-        counts = schema.counts(store)
+def report_dict(
+    settings: Settings, report: indexer.SyncReport, counts: schema.Counts
+) -> dict[str, Any]:
+    """The result shape of one sync, shared by ``sdd sync`` and the daemon's ``POST /api/sync``."""
     return {
         "store": settings.store_path,
         "initial": report.initial,
@@ -57,6 +50,23 @@ def sync(settings: Settings, *, reset: bool = False) -> dict[str, Any]:
         "nodes": counts.total_nodes,
         "relationships": counts.total_relationships,
     }
+
+
+def sync(settings: Settings, *, reset: bool = False) -> dict[str, Any]:
+    """One full sync into the store (``daemon_running`` if another process holds it).
+
+    A running daemon for this project's store refuses first (SPEC-01 §1 rule 3); the writer lock
+    is the final authority. ``reset`` empties the store in place first (D002); graph-only state
+    is lost. An in-memory store is new anyway, so nothing is written to disk.
+    """
+    remote.ensure_no_daemon(settings)
+    with Store.open(settings.store_path) as store:
+        schema.ensure(store)
+        if reset:
+            indexer.reset(store)
+        report = indexer.full_sync(store, settings)
+        counts = schema.counts(store)
+    return report_dict(settings, report, counts)
 
 
 def doctor(settings: Settings) -> dict[str, Any]:

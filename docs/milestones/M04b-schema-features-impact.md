@@ -19,6 +19,7 @@ Tables and columns from the schema spec, author-declared features and domains, b
 - [ ] **M04b.6** `get_context` code part: features, files, tables, recent commits ([SPEC-05 §4](../specs/SPEC-05-agent-tools.md#4-get_context) item 5). (after M04b.4)
 ### Tests
 - [ ] **M04b.7** [SPEC-06 §6](../specs/SPEC-06-code-context.md#6-acceptance-checks) checks 1–7; [SPEC-03 §7](../specs/SPEC-03-markdown-parsing.md#7-acceptance-checks) checks 7, 8 (graph side) and 9.
+- [ ] **M04b.8** Extend `test_spec01_ac02` and `test_spec01_ac03` to `sdd impact` (M02 tested them with `sdd status`). (after M04b.5)
 
 ## Acceptance criteria
 1. The tests above are green, along with the full gates.

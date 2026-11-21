@@ -8,27 +8,32 @@ from sdd.config import Settings
 from sdd.graph import schema
 from sdd.graph.store import Store
 from sdd.parse import ParseWarning
+from sdd.service import remote
 from sdd.service.indexing import by_severity
 from sdd.sync import indexer
 
 
 def status(settings: Settings) -> dict[str, Any]:
-    """Read the planning state from the store.
+    """Read the planning state: through the project's daemon when one runs, else from the store.
 
     ``:memory:`` syncs into the throwaway store first. Otherwise the store is opened read-only
     (``invalid_input`` if it does not exist yet), so it works next to a running writer.
     """
+    if remote.routes_through_daemon(settings) and (info := remote.detect(settings)):
+        result: dict[str, Any] = remote.DaemonClient(settings, info).get("/api/status")
+        return result
     analysis = indexer.analyse(settings)
     if settings.in_memory:
         with Store.open(settings.store_path) as store:
             schema.ensure(store)
             indexer.full_sync(store, settings)
-            return _read(store, settings, analysis.warnings)
+            return read_status(store, settings, analysis.warnings)
     with Store.open(settings.store_path, read_only=True) as store:
-        return _read(store, settings, analysis.warnings)
+        return read_status(store, settings, analysis.warnings)
 
 
-def _read(store: Store, settings: Settings, warnings: list[ParseWarning]) -> dict[str, Any]:
+def read_status(store: Store, settings: Settings, warnings: list[ParseWarning]) -> dict[str, Any]:
+    """The status payload from an open store; the daemon calls this with its last sync warnings."""
     milestones = store.read(
         "MATCH (m:Milestone) RETURN m.id AS id, m.title AS title, m.status AS status, "
         "m.order AS ord"

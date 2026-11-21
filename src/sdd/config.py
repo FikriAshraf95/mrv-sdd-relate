@@ -65,7 +65,7 @@ class Settings:
     # SPEC-04 §1, §4, §6
     watch: str = "auto"
     poll_interval: float = 1.0
-    poll_code_interval: float = 10.0
+    poll_code_interval: float = 10.0  # minimum; the poll backs off to 10x its duration (M02.8)
     max_files: int = 20_000
     git_max_commits: int = 2000
     # SPEC-05 §3, DEC-003 (seconds)
