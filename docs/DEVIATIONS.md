@@ -52,4 +52,6 @@ Open deviations are folded into the specs at M99 (and whenever one spec collects
 
 | # | Title | Milestone | Spec | Status |
 |---|---|---|---|---|
+| [D003](deviations/D003-relink-on-catalog-change.md) | Re-link trigger widened to the whole link catalog | M01b | [SPEC-04 §2](specs/SPEC-04-sync.md#2-incremental-sync) | Open |
+| [D002](deviations/D002-reset-empties-store-in-place.md) | `sdd sync --reset` empties the store in place | M01b | [SPEC-08 §2](specs/SPEC-08-cli-and-exports.md#2-commands) | Resolved → spec updated |
 | [D001](deviations/D001-store-copies-keep-lock-markers.md) | Committed store copies keep the `.cypherlite.lock` markers | M00b | [SPEC-08 §3](specs/SPEC-08-cli-and-exports.md#3-exports-and-snapshots) | Resolved → spec updated |

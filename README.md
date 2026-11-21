@@ -6,7 +6,7 @@ SDD Graph turns a spec-driven repo into one live **[Relate](HANDOFF.md)** graph.
 
 **Markdown stays the source of truth.** The graph can be rebuilt from Markdown, code and git at any time. The only exceptions are claims, agents and events.
 
-> **Status (2026-11-21):** building. Specs v1 and milestones are written; the Docker dev environment, package skeleton, Relate access layer and Markdown parsers are done ([M00a](docs/milestones/done/M00a-docker-and-skeleton.md), [M00b](docs/milestones/done/M00b-relate-access-layer.md), [M01a](docs/milestones/done/M01a-markdown-parsers.md)). Everything below describes the planned v1. The milestone that builds each part is listed next to it. Next up: [M01b: Graph upsert and full sync](docs/milestones/M01b-graph-sync.md).
+> **Status (2026-11-22):** building. Specs v1 and milestones are written; the Docker dev environment, package skeleton, Relate access layer, Markdown parsers and graph sync (`sdd sync`, `status`, `doctor`, `ids`) are done ([M00a](docs/milestones/done/M00a-docker-and-skeleton.md), [M00b](docs/milestones/done/M00b-relate-access-layer.md), [M01a](docs/milestones/done/M01a-markdown-parsers.md), [M01b](docs/milestones/done/M01b-graph-sync.md)). Everything below describes the planned v1. The milestone that builds each part is listed next to it. Next up: [M02: Sync daemon](docs/milestones/M02-sync-daemon.md).
 
 ## Why
 

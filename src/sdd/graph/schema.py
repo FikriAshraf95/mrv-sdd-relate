@@ -36,6 +36,41 @@ LABELS: tuple[str, ...] = (
     "Meta",
 )
 
+# SPEC-02 §4: every relationship type, in table order. Types cannot be Cypher parameters, so
+# upserts format them into statements only after checking them against this tuple.
+REL_TYPES: tuple[str, ...] = (
+    "HAS_SECTION",
+    "HAS_CHECK",
+    "LINKS_TO",
+    "DEPENDS_ON",
+    "READS",
+    "INCLUDES",
+    "BLOCKED_BY",
+    "GOVERNED_BY",
+    "VERIFIES",
+    "PLANS",
+    "AMENDS",
+    "RAISED_IN",
+    "AFFECTS",
+    "MENTIONS",
+    "CLAIMED",
+    "ABOUT",
+    "CONTAINS",
+    "PARENT",
+    "CHANGED",
+    "COMPLETES",
+    "PART_OF",
+    "TOUCHES",
+    "TESTS",
+    "DEFINES_TABLE",
+    "HAS_COLUMN",
+    "REFERENCES",
+    "SPECIFIED_BY",
+    "BELONGS_TO",
+    "IMPLEMENTED_IN",
+    "USES_TABLE",
+)
+
 # SPEC-02 §6
 PROPERTY_INDEXES: tuple[tuple[str, str], ...] = (
     ("Task", "status"),

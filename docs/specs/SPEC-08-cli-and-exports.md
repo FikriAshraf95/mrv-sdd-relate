@@ -18,9 +18,9 @@
 | `sdd info` | Project root, store path, whether a daemon runs (and its port), node and relationship counts per label and type, schema version |
 | `sdd daemon [--host 127.0.0.1] [--port 8770]` | Run the daemon ([SPEC-01 §5](SPEC-01-architecture.md#5-daemon-lifecycle)) |
 | `sdd public --store PATH [--port 8780]` | Run the read-only public server ([SPEC-09 §4](SPEC-09-security.md#4-public-mode)) |
-| `sdd sync [--reset]` | One full sync without a daemon; `--reset` deletes the store first (graph-only state is lost; asks unless `--yes`) |
+| `sdd sync [--reset]` | One full sync without a daemon; `--reset` empties the store first, in place (graph-only state is lost; asks unless `--yes`; `--json` needs `--yes`) |
 | `sdd status` | Milestones, task counts, claims, warnings, unresolved links, unticked tasks with COMPLETES commits |
-| `sdd doctor` | Every parser warning and unresolved link, deviation index mismatches, duplicate IDs; exit 1 if any `error` |
+| `sdd doctor` | Reads the Markdown only and never opens the store, so it works on a read-only checkout. Every parser warning and unresolved link, deviation index mismatches, duplicate IDs; exit 1 if any `error` |
 | `sdd ids --write [--milestone M17]` | Add stable task IDs to legacy checkbox lines ([SPEC-03 §4.2](SPEC-03-markdown-parsing.md#42-task-ids)); shows a diff and asks unless `--yes` |
 | `sdd next` · `sdd claim T --agent A` · `sdd release T --agent A [--force]` · `sdd done T --agent A [--notes] [--files]` | The coordination tools for humans and scripts |
 | `sdd deviation T --agent A --title … --amends REF… --spec-says … --does … --why … [--consequences …] [--affects …]` · `sdd milestone-done M --agent A --verification TEXT` | `log_deviation` and `complete_milestone` ([SPEC-05 §5–6](SPEC-05-agent-tools.md#5-log_deviation)) |
@@ -33,6 +33,8 @@
 | `sdd demo prepare --sample DIR --data DIR` | Copy the sample into a fresh working copy and apply its start state ([SPEC-11 §4](SPEC-11-deployment-and-demo.md#4-sprint-replay) step 1) |
 | `sdd demo replay --sample DIR --data DIR [--seed N]` | Prepare, then run the simulated agents in a loop ([SPEC-11 §4](SPEC-11-deployment-and-demo.md#4-sprint-replay)) |
 | `sdd demo serve --sample DIR --data DIR [--host] [--port 8770]` | Prepare, then run the daemon on the copy. One command, so the judges' image can keep `ENTRYPOINT ["sdd"]` ([SPEC-11 §2](SPEC-11-deployment-and-demo.md#2-compose)) |
+
+> **DEVIATION:** see [D002](../deviations/D002-reset-empties-store-in-place.md) — `sdd sync --reset` empties the store in place instead of deleting its directory
 
 ## 3. Exports and snapshots
 

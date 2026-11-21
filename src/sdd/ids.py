@@ -6,13 +6,16 @@ callers in ``service/`` map it to ``invalid_input``.
 
 from __future__ import annotations
 
+import os
 import re
+from datetime import UTC, datetime
 from pathlib import PurePosixPath
 
 __all__ = [
     "InvalidIdError",
     "id_from_filename",
     "label_of",
+    "new_ulid",
     "normalise",
 ]
 
@@ -187,3 +190,21 @@ def id_from_filename(name: str) -> str | None:
     if not m:
         return None
     return normalise(m["spec"] or m["ms"] or m["dev"])
+
+
+_CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+
+
+def new_ulid(moment: datetime, rand: bytes | None = None) -> str:
+    """A 26-character ULID: 48-bit millisecond time, then 80 random bits (Crockford base32).
+
+    ``rand`` (10 bytes) makes the result deterministic for tests.
+    """
+    millis = int(moment.astimezone(UTC).timestamp() * 1000)
+    if not 0 <= millis < 1 << 48:
+        raise ValueError(f"{moment!r} is outside the ULID time range")
+    random_part = os.urandom(10) if rand is None else rand
+    if len(random_part) != 10:
+        raise ValueError("a ULID needs exactly 10 random bytes")
+    value = (millis << 80) | int.from_bytes(random_part, "big")
+    return "".join(_CROCKFORD[(value >> shift) & 31] for shift in range(125, -1, -5))

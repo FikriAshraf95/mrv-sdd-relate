@@ -25,6 +25,8 @@ The **initial sync** is any sync that runs while `Meta.last_full_sync` is unset 
 7. After the initial sync: a Section whose `content_hash` changed, or a new Section in a spec that already existed, gets `changed_at = now` and a `section_changed` Event. A new spec gets `spec_added` (its sections keep `changed_at = null`); a removed one gets `spec_removed`.
 8. After the batch: `checkpoint()`, update `Meta.last_full_sync` for full scans, and publish one SSE `graph_changed` event listing the changed IDs ([SPEC-07 §3](SPEC-07-dashboard-and-api.md#3-live-events)).
 
+> **DEVIATION:** see [D003](../deviations/D003-relink-on-catalog-change.md) — step 3 re-links every file when anything links resolve against changes (IDs, anchors, title slugs, document paths), not only when the set of document IDs changes
+
 **Startup** runs a full scan through the same path, as one batch: every file's hash against the graph, removed files deleted, then git sync.
 
 ### 2.1 Task upsert rules

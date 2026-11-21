@@ -27,6 +27,7 @@
 | `deviation_missing_section` | warning | [§5.1](#51-deviation-files) |
 | `deviation_bad_field` | warning | an unparsable **Date / milestone:** date |
 | `deviation_index_mismatch` | warning | [§5.2](#52-deviation-index) |
+| `duplicate_id` | warning | two files produce the same node ID; the first by path wins and the later file's node is dropped ([SPEC-04 §3](SPEC-04-sync.md#3-deletes-and-renames); reported by `sync/`, not by a parser) |
 | `section_duplicate_id` | info | two headings map to one section ID (the second gets `-2`) |
 | `link_moved` | info | [§2.1](#21-markdown-links) (reported by the resolver) |
 

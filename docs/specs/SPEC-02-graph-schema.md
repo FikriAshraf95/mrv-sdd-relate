@@ -127,7 +127,7 @@ File contents are **never** stored. The graph holds connections and intent; agen
 |---|---|---|
 | `HAS_SECTION` | Spec → Section, Section → Section (nesting) | headings |
 | `HAS_CHECK` | Spec → AcceptanceCheck | *Acceptance checks* section |
-| `LINKS_TO` | Section \| Doc → Section \| Spec \| Milestone \| Deviation \| Doc | Markdown links in section text, and in the text of a Doc ([SPEC-03 §5.3](SPEC-03-markdown-parsing.md#53-docs)) |
+| `LINKS_TO` | Section \| Doc → Section \| Spec \| Milestone \| Deviation \| Doc \| File | Markdown links in section text, and in the text of a Doc ([SPEC-03 §5.3](SPEC-03-markdown-parsing.md#53-docs)) |
 | `DEPENDS_ON` | Milestone → Milestone | *Depends on* (and reversed *Blocks*) |
 | `READS` | Milestone → Section \| Spec | *Read first* line; `{whole: true}` on Spec targets marked "(whole file)" |
 | `INCLUDES` | Milestone → Task | checkboxes |
@@ -163,13 +163,13 @@ File contents are **never** stored. The graph holds connections and intent; agen
 | a project-relative file path | the parser of that file | that file is re-synced (all its relationships are deleted and recreated in one transaction, [SPEC-04 §2](SPEC-04-sync.md#2-incremental-sync)) or removed |
 | `walker` | the code walker (`CONTAINS`, `IMPLEMENTED_IN`, `TESTS`) | the walker rebuilds them |
 | `git:<sha>` | git sync (`PARENT`, `CHANGED`, `COMPLETES`, `PART_OF`, commit-derived `TOUCHES`) | that commit becomes unreachable ([SPEC-04 §6](SPEC-04-sync.md#6-git-sync)) |
-| `tool` | a write tool (graph-only) | never by sync; only by `sdd sync --reset` or `DETACH DELETE` of an endpoint |
+| `tool` | a write tool, and `ABOUT` from sync Events (graph-only) | never by sync; only by `sdd sync --reset` or `DETACH DELETE` of an endpoint |
 
 The same type may have several owners (`TOUCHES` from a tool and from git); each owner only ever deletes its own.
 
 ## 5. Unresolved links
 
-A link whose target does not exist yet (a spec not written, a section renamed) creates no relationship. It is recorded on the source node as `unresolved: list<string>` and reported by `sdd doctor` and `sdd status`.
+A link whose target does not exist yet (a spec not written, a section renamed) creates no relationship. It is recorded on the source node as `unresolved: list<string>` and reported by `sdd doctor` and `sdd status`. The list lives on the node that is the relationship's source if the file that states the link produces it; if not (an `AMENDS` from a deviation, written as a note in a spec), on the resolved target if the file produces that, else on the file's own Spec, Milestone, Deviation or Doc node. A file with no node (the deviation index) records nothing. Each sync of a file rewrites the `unresolved` list of every node that file produces.
 
 ## 6. Indexes and constraints
 

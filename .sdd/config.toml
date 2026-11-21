@@ -1,0 +1,3 @@
+# SDD Graph reads this repo's own docs. The fixture repos under tests/fixtures/ carry their own
+# CLAUDE.md files; they are test data, not Docs of this project.
+docs = ["CLAUDE.md", "docs/IDEA.md", "docs/design-system.md", "HANDOFF.md", "README.md"]

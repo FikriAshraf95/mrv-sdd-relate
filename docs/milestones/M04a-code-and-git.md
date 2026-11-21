@@ -13,6 +13,7 @@ The graph knows the code and its history: folders and files (no contents), git c
 - [ ] **M04a.1** Complete the `tool_style` fixture for M04a and M04b: a code tree, tests named after checks, a scripted git history with task IDs in messages, and a schema spec with tables `documents` and `chunks` (`chunks.document_id → documents`) plus a Feature `ingestion` whose globs match part of the code tree. SPEC-06's checks run on it.
 ### Code layer
 - [ ] **M04a.2** `sync/files.py`: walker with `.gitignore`, `.sddignore` and the built-in skips; Folder/File (in sync phase 1); `language`; `is_test`; soft cap; the code poll interval ([SPEC-04 §4](../specs/SPEC-04-sync.md#4-code-walker)). Evaluate Relate's `fs-to-graph` (open item O8) and record the decision in SPEC-00 §8. (after M04a.1)
+- [ ] **M04a.6** Keep the SDD indexer from treating code Files as its own: M01b's `upsert.read_state` takes every `File` with a `content_hash` as an SDD document, so the Markdown full sync would delete code Files as "removed". Scope `read_state` / removals to the SDD globs (or the walker's set) before code Files carry hashes. (after M04a.2)
 - [ ] **M04a.3** `TESTS` scan of test files, numbers read as integers ([SPEC-04 §4](../specs/SPEC-04-sync.md#4-code-walker)). (after M04a.2)
 - [ ] **M04a.4** `sync/git.py`: incremental log, history rewrite handling, `COMPLETES`, `PART_OF`, `TOUCHES` (all `src = git:<sha>`), HEAD polling ([SPEC-04 §6](../specs/SPEC-04-sync.md#6-git-sync)). (after M04a.2)
 ### Tests

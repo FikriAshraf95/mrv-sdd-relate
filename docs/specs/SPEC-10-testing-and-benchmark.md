@@ -30,8 +30,8 @@
 
 `tests/invariants/` grows every milestone:
 1. `relate` is imported only in `graph/store.py` (also an import-linter contract).
-2. **Rebuild equivalence:** `sdd sync --reset` on a synced project reproduces every node and relationship except graph-only state ([SPEC-02 §2](SPEC-02-graph-schema.md#graph-only-state-canonical-list)).
-3. Upserts change the graph-only Task properties (`claimed_by`, `claimed_at`, `completed_by`, `done_at`, `notes`) only in the cases of [SPEC-04 §2.1](SPEC-04-sync.md#21-task-upsert-rules), and never delete a relationship with `src = "tool"`.
+2. **Rebuild equivalence:** `sdd sync --reset` on a synced project reproduces every node and relationship except graph-only state ([SPEC-02 §2](SPEC-02-graph-schema.md#graph-only-state-canonical-list)). The comparison excludes Agent and Event nodes; `CLAIMED`, `ABOUT` and every `src = "tool"` relationship; the graph-only Task properties; `last_synced`, Section `changed_at` and `Meta.last_full_sync`; and the derived `status` of tasks that were claimed and of their milestone.
+3. Upserts change the graph-only Task properties (`claimed_by`, `claimed_at`, `completed_by`, `done_at`, `notes`) only in the cases of [SPEC-04 §2.1](SPEC-04-sync.md#21-task-upsert-rules), and never delete a relationship with `src = "tool"` (except the `CLAIMED` relationship that a hand tick clears, SPEC-04 §2.1).
 4. Write-back changes exactly the intended lines (diff check) and preserves line endings.
 5. Public mode: no route outside the public list answers, and `/mcp` is absent (built from the route table, so new routes are covered automatically).
 6. **Doc ↔ code drift:** the MCP tools in [SPEC-05 §2](SPEC-05-agent-tools.md#2-tool-index), the endpoints in [SPEC-07 §2](SPEC-07-dashboard-and-api.md#2-endpoint-index) and the commands in [SPEC-08 §2](SPEC-08-cli-and-exports.md#2-commands) match what the code registers. The test parses our own specs with our own parser.

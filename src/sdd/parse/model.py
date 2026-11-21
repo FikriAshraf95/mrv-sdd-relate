@@ -43,6 +43,7 @@ WARNING_CODES: dict[str, Severity] = {
     "deviation_missing_section": "warning",
     "deviation_bad_field": "warning",
     "deviation_index_mismatch": "warning",
+    "duplicate_id": "warning",
     "section_duplicate_id": "info",
     "link_moved": "info",
 }
