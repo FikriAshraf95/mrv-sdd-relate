@@ -1,6 +1,6 @@
 # M04a implementation plan (Opus plan → Sonnet build)
 
-Source of truth: [SPEC-04 §2, §4, §6](../specs/SPEC-04-sync.md#4-code-walker), [SPEC-02 §3–4, §7](../specs/SPEC-02-graph-schema.md#3-codebase-layer), [SPEC-03 §1](../specs/SPEC-03-markdown-parsing.md#1-rules-and-configuration). Milestone: [M04a](M04a-code-and-git.md). Previous plan: [M02-plan](done/M02-plan.md).
+Source of truth: [SPEC-04 §2, §4, §6](../../specs/SPEC-04-sync.md#4-code-walker), [SPEC-02 §3–4, §7](../../specs/SPEC-02-graph-schema.md#3-codebase-layer), [SPEC-03 §1](../../specs/SPEC-03-markdown-parsing.md#1-rules-and-configuration). Milestone: [M04a](M04a-code-and-git.md). Previous plan: [M02-plan](M02-plan.md).
 Follow `CLAUDE.md`. D005 is the highest deviation. This plan expects **no deviation**: each decision below fills a gap the spec leaves open, and is written into the owning spec in the same change (§9). If you knowingly depart from a spec anyway, call `log_deviation` (D006…).
 
 ## 0. Scope and boundaries
@@ -16,7 +16,7 @@ Extend `tests/fixtures/tool_style/` (invented content only; keep the existing ke
 
 - **Schema spec** `docs/specs/SPEC-02-ingest-schema.md` (the name contains `schema`, so the default `schema_specs` glob matches). H1 `# SPEC-02 — Ingestion schema`; header blockquote with a Feature line:
   `> **Feature:** Ingestion · **Domain:** Library · **Implements:** \`src/ingest/**\` · **Tables:** documents, chunks`
-  Sections: `## 1. Overview`; ``## 2. `documents` `` with a `| Column | Type | Rules |` table (`id` uuid PK, `title` text not null, `created_at` timestamptz not null); ``## 3. `chunks` `` (`id` uuid PK, `document_id` uuid `FK → documents` not null, `body` text not null); `## 4. Acceptance checks` with 2–3 checks. Add a `> **DEVIATION:** see [D002](…)` note under §2.
+  Sections: `## 1. Overview`; ``## 2. `documents` `` with a `| Column | Type | Rules |` table (`id` uuid PK, `title` text not null, `created_at` timestamptz not null); ``## 3. `chunks` `` (`id` uuid PK, `document_id` uuid `FK → documents` not null, `body` text not null); `## 4. Acceptance checks` with 2–3 checks. Add a `> **DEVIATION:** see [D002](../…)` note under §2.
 - **Deviation** `docs/deviations/D002-…md` amending `SPEC-02 §2`, `**Date / milestone:** 2026-11-03 · M02 · M02.1`, `**Affects:** \`src/ingest/loader.py\`, \`documents\``; plus its row at the top of `docs/DEVIATIONS.md`. Copy the shape of the existing D001.
 - **Milestone** `docs/milestones/M02-ingestion.md`: `Depends on` M01, `Read first` SPEC-02 §2–3, tasks `M02.1` loader (mentions `` `documents` `` and links SPEC-02 §2), `M02.2` chunker (mentions `` `chunks` ``, `(after M02.1)`), `M02.3` tests (`SPEC-02 §4 checks 1–2`).
 - **Code tree:** `src/kettle/__init__.py`, `src/kettle/brew.py` (exists), `src/ingest/__init__.py`, `src/ingest/loader.py`, `src/ingest/chunker.py`, `src/util/misc.py` (an orphan file for SPEC-06 check 4), `tests/test_brew.py` with `def test_spec01_ac1_green_default()` and `def test_spec1_ac02_black_default()`, `tests/test_ingest.py` with `test_spec02_ac1_…`, `README.txt` (a non-code text file), a fixture `.gitignore` with `*.log` and `scratch/`. **Ignored files are never committed** (our own repo's git would honour the fixture `.gitignore` too): tests create `scratch/…`, `x.log` and `node_modules/…` in the tmp copy.
