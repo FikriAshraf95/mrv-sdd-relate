@@ -22,7 +22,7 @@
 ## 3. Fixtures
 
 `tests/fixtures/` holds small repos **written to mirror each reference format, with invented content**. Nothing is copied from the reference projects (office-suite-v2 cannot be made public, open item O1); only their conventions are reproduced:
-- `rag_style/`: office-rag conventions (`## 2. \`documents\`` schema tables, `**Status:**` then text, `docs/deviations/` empty, root and nested CLAUDE.md).
+- `rag_style/`: office-rag conventions (`` ## 2. `documents` `` schema tables, `**Status:**` then text, `docs/deviations/` empty, root and nested CLAUDE.md).
 - `suite_style/`: office-suite-v2 conventions (`**Spec ID:**` headers, `### attachments` tables with `→ users [restrict]`, letter-suffixed milestones, `**Status: DONE (…)**` paragraphs, plan files, nested `> > **DEVIATION:**` notes, legacy task lines without IDs).
 - `tool_style/`: this tool's own conventions (task IDs, `(after …)`, Feature lines), plus code files, tests named after checks, and a scripted git history.
 

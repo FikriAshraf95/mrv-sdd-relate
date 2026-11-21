@@ -127,13 +127,13 @@ File contents are **never** stored. The graph holds connections and intent; agen
 |---|---|---|
 | `HAS_SECTION` | Spec → Section, Section → Section (nesting) | headings |
 | `HAS_CHECK` | Spec → AcceptanceCheck | *Acceptance checks* section |
-| `LINKS_TO` | Section → Section \| Spec \| Milestone \| Deviation \| Doc | Markdown links in section text |
+| `LINKS_TO` | Section \| Doc → Section \| Spec \| Milestone \| Deviation \| Doc | Markdown links in section text, and in the text of a Doc ([SPEC-03 §5.3](SPEC-03-markdown-parsing.md#53-docs)) |
 | `DEPENDS_ON` | Milestone → Milestone | *Depends on* (and reversed *Blocks*) |
 | `READS` | Milestone → Section \| Spec | *Read first* line; `{whole: true}` on Spec targets marked "(whole file)" |
 | `INCLUDES` | Milestone → Task | checkboxes |
 | `BLOCKED_BY` | Task → Task | `(after M02.1)` |
 | `GOVERNED_BY` | Task → Section \| Spec | links inside the task line |
-| `VERIFIES` | Task → AcceptanceCheck | "SPEC-03 §10 checks 3–9" in the task line |
+| `VERIFIES` | Task → AcceptanceCheck | `SPEC-03 §10 checks 3–9` in the task line |
 | `PLANS` | Doc(plan) → Milestone | `M20f-plan.md` |
 | `AMENDS` | Deviation → Section \| Spec | the **Spec:** field and every `> **DEVIATION:** see [Dnnn]` note |
 | `RAISED_IN` | Deviation → Milestone \| Task | **Date / milestone:** field (milestone, then an optional task ID: `2026-11-25 · M02 · M02.3`) |

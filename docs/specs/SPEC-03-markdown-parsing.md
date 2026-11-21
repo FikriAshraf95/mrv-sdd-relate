@@ -10,6 +10,25 @@
 3. **No new conventions are required except stable task IDs** ([§4.2](#42-task-ids)). The Feature line ([§3.3](#33-feature-line)) is optional.
 4. Both reference formats must parse with zero warnings of severity `error`.
 5. **Code is not prose.** Markdown links, spec references, task-ID mentions and `**DEVIATION:**` notes inside inline code spans and fenced or indented code blocks are ignored, so specs can show examples without creating links. Two uses of inline code are deliberate and still apply: the backticked identifier `part` of a spec reference (§2.2), and `MENTIONS` (§3.2).
+6. **Warning codes.** Every warning has a `code` and a severity; `sdd doctor` exits 1 on any `error`. The complete list (`parse/model.py` `WARNING_CODES` builds every warning from it, so a typo fails fast):
+
+| Code | Severity | When |
+|---|---|---|
+| `bad_filename` | error | the file name has no Spec, Milestone or Deviation ID, so the parser cannot build the node |
+| `task_duplicate_id` | error | two tasks with the same stable ID in one file (the second becomes positional) |
+| `missing_h1` | warning | no H1 |
+| `h1_id_mismatch` | warning | the H1's ID differs from the file name's (the file name wins) |
+| `task_id_mismatch` | warning | [§4.2](#42-task-ids) |
+| `task_unstable_id` | warning | [§4.2](#42-task-ids) |
+| `task_bad_after` | warning | `(after …)` names something that is not a task ID |
+| `ref_bad_range` | warning | a `§` range that cannot be expanded (both ends are kept as plain section references) |
+| `ac_duplicate_number` | warning | two acceptance checks with one number (the second is skipped) |
+| `feature_bad_line` | warning | a Feature line without a name |
+| `deviation_missing_section` | warning | [§5.1](#51-deviation-files) |
+| `deviation_bad_field` | warning | an unparsable **Date / milestone:** date |
+| `deviation_index_mismatch` | warning | [§5.2](#52-deviation-index) |
+| `section_duplicate_id` | info | two headings map to one section ID (the second gets `-2`) |
+| `link_moved` | info | [§2.1](#21-markdown-links) (reported by the resolver) |
 
 Default paths, overridable in `.sdd/config.toml`:
 
@@ -43,7 +62,7 @@ num     := digits ( "." digits )*
 
 - **A reference to a section includes its descendants.** `SPEC-00 §6` means §6 and §6.1–6.7. `READS`, `GOVERNED_BY` and `LINKS_TO` point at the named section only; every reader (`get_context`, `read_section`, the benchmark) expands it to the subtree. "(whole section)" is accepted and means the same as no suffix.
 - A range expands to the sibling sections between both ends, inclusive: `§3–4` → `#3`, `#4`; `§4.6–4.7` → `#4.6`, `#4.7`; `§4–§6` → `#4`, `#5`, `#6`.
-- A backticked identifier names a section by the slug of its **title, numbered or not**: `SPEC-02 \`file_shares\`` → the section titled `file_shares`; `SPEC-02 \`documents\`` → the section `## 2. \`documents\`` (ID `SPEC-02#2`). No match is an unresolved link.
+- A backticked identifier names a section by the slug of its **title, numbered or not**: `` SPEC-02 `file_shares` `` → the section titled `file_shares`; `` SPEC-02 `documents` `` → the section `` ## 2. `documents` `` (ID `SPEC-02#2`). No match is an unresolved link.
 - Trailing words such as `step 1` or `invariant 1` are kept in the relationship's `note` property, not resolved.
 - **When a link has both an anchor and § references in its text, the text wins** (an anchor can only point at the first section of a range).
 - `SPEC-NN` alone (or "(whole file)") targets the Spec node.
@@ -135,7 +154,7 @@ Yields Table, Column, `DEFINES_TABLE` from the section, `HAS_COLUMN`, `REFERENCE
 
 1. The office-rag fixture (SPEC-00, SPEC-02, M00, M02, DEVIATIONS) parses with zero `error` warnings; M02's Read first yields READS to `SPEC-03` (whole), `SPEC-02#3`, `SPEC-02#4`, `SPEC-06#2`, `#4`, `#5`, `#6`, `SPEC-08#4.6`, `#4.7`, `SPEC-11#2`.
 2. The office-suite fixture (SPEC-02 excerpt, M17, D012, D018 notes) parses with zero `error` warnings; M17 is `done` with `done_date = 2026-11-01` and RAISED_IN from D021.
-3. Grammar: `SPEC-19 §4–§6` → 3 sections; `SPEC-02 §3–4` → 2; `SPEC-02 \`file_shares\`` → the slug section; `SPEC-06 §7 step 1` → `#7` with `note = "step 1"`.
+3. Grammar: `SPEC-19 §4–§6` → 3 sections; `SPEC-02 §3–4` → 2; `` SPEC-02 `file_shares` `` → the slug section; `SPEC-06 §7 step 1` → `#7` with `note = "step 1"`.
 4. A link `[SPEC-02 §3–4](…#3-chunks)` yields both `#3` and `#4` (text beats anchor).
 5. Task lines: `**M02.3**` parses with `stable_id = true`; a legacy line gets `M17.p3`, `stable_id = false` and a warning; `(after M02.1)` yields BLOCKED_BY.
 6. A nested `> > **DEVIATION:** see [D018](…)` note yields AMENDS from D018 to its section.

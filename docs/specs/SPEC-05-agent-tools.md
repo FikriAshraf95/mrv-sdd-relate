@@ -19,7 +19,7 @@
 | 3 | `claim_task(task_id, agent)` | ✓ | Atomic claim |
 | 4 | `release_task(task_id, agent, reason?, force=false)` | ✓ | Give a claim back; `force` frees another agent's claim ([§3](#3-claims)) |
 | 5 | `get_context(task_id, detail="task", max_chars=24000, agent?)` | | The context packet ([§4](#4-get_context)) |
-| 6 | `read_section(refs, agent?)` | | Text of one or more sections by reference (`"SPEC-03 §4.2"`, `"SPEC-02 \`documents\`"`); replaces grep + Read |
+| 6 | `read_section(refs, agent?)` | | Text of one or more sections by reference (`"SPEC-03 §4.2"`, `` "SPEC-02 `documents`" ``); replaces grep + Read |
 | 7 | `log_deviation(task_id, agent, title, spec_says, implementation_does, why, consequences?, amends, affects?, status="open")` | ✓ | Logs a deviation the way the manual ritual does ([SPEC-04 §5.1](SPEC-04-sync.md#51-edits)) |
 | 8 | `complete_task(task_id, agent, notes?, files_touched?, commit?)` | ✓ | Ticks the box, records the outcome, returns newly unblocked tasks |
 | 9 | `complete_milestone(milestone_id, agent, verification)` | ✓ | Writes the DONE status line ([§6](#6-complete_milestone)) |

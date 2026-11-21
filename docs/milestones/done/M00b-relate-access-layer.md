@@ -1,6 +1,6 @@
 # M00b — Relate access layer
 
-> **Depends on:** [M00a](M00a-docker-and-skeleton.md) · **Blocks:** [M01a](../M01a-markdown-parsers.md)
+> **Depends on:** [M00a](M00a-docker-and-skeleton.md) · **Blocks:** [M01a](M01a-markdown-parsers.md)
 > **Read first:** [SPEC-01 §1, §4](../../specs/SPEC-01-architecture.md#1-process-model) · [SPEC-00 §8](../../specs/SPEC-00-overview.md#8-schedule-and-open-items) (open items O5, O6, O10–O12) · [SPEC-02 §2, §6](../../specs/SPEC-02-graph-schema.md#2-planning-layer) · [SPEC-09 §3](../../specs/SPEC-09-security.md#3-query-guard) · [SPEC-10 §2](../../specs/SPEC-10-testing-and-benchmark.md#2-test-host)
 > **Model:** Opus. The store layer and write queue are the contract every later milestone writes through; the experiments decide its shape. **Human review after.**
 > **Split from:** M00 (2026-11-21)
