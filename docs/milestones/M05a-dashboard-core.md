@@ -1,6 +1,6 @@
 # M05a — Dashboard: shell, Board, Graph and Query
 
-> **Depends on:** [M03b](M03b-context-and-integration.md) · **Blocks:** [M05b](M05b-dashboard-impact-explain.md)
+> **Depends on:** [M03b](done/M03b-context-and-integration.md) · **Blocks:** [M05b](M05b-dashboard-impact-explain.md)
 > **Read first:** [SPEC-07 (whole file)](../specs/SPEC-07-dashboard-and-api.md) · [SPEC-11 §6](../specs/SPEC-11-deployment-and-demo.md#6-static-demo-github-pages)
 > **Model:** Sonnet. Plain static UI over existing endpoints. Can run in a parallel session with M04a/M04b once M03b is done.
 > **Split from:** M05 (2026-11-21)

@@ -1,6 +1,6 @@
 # M04a — Code and git layer
 
-> **Depends on:** [M03b](M03b-context-and-integration.md) · **Blocks:** [M04b](M04b-schema-features-impact.md)
+> **Depends on:** [M03b](done/M03b-context-and-integration.md) · **Blocks:** [M04b](M04b-schema-features-impact.md)
 > **Read first:** [SPEC-02 §3–4, §7](../specs/SPEC-02-graph-schema.md#3-codebase-layer) · [SPEC-04 §2, §4, §6](../specs/SPEC-04-sync.md#2-incremental-sync) · [SPEC-03 §1](../specs/SPEC-03-markdown-parsing.md#1-rules-and-configuration)
 > **Model:** Opusplan. Ignore rules, git history rewrites and `src = git:<sha>` ownership. Write `M04a-plan.md` first.
 > **Split from:** M04 (2026-11-21)
