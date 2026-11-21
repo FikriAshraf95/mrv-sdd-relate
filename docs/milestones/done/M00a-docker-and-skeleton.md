@@ -1,6 +1,6 @@
 # M00a — Docker dev environment and package skeleton
 
-> **Depends on:** — · **Blocks:** [M00b](../M00b-relate-access-layer.md)
+> **Depends on:** — · **Blocks:** [M00b](M00b-relate-access-layer.md)
 > **Read first:** [SPEC-00 §6](../../specs/SPEC-00-overview.md#6-global-conventions) · [SPEC-01 §2–3, §6](../../specs/SPEC-01-architecture.md#2-repo-layout) · [SPEC-02 §1](../../specs/SPEC-02-graph-schema.md#1-ids-and-common-properties) · [SPEC-08 §1–2](../../specs/SPEC-08-cli-and-exports.md#1-rules) · [SPEC-10 §1–2, §6](../../specs/SPEC-10-testing-and-benchmark.md#1-conventions) · [SPEC-11 §1–3](../../specs/SPEC-11-deployment-and-demo.md#1-development-container)
 > **Model:** Opus. The Docker and package contracts every later milestone builds on.
 > **Split from:** M00 (2026-11-21)

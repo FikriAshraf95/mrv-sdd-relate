@@ -36,7 +36,7 @@ This spec is the **single source of truth for graph shapes**. Other specs link h
 | title | string | H1 without the `SPEC-NN —` prefix |
 | status | string null | From the header line `**Status:**` |
 | owner_of | string null | From `**Owner of:**` (or `**Spec ID:**`-style headers: kept in `header` raw) |
-| header | map | Every `**Key:** value` pair of the header blockquote. Stored as a JSON string if Relate has no map properties (open item O10); `store.py` decodes it, so callers always see a map |
+| header | map | Every `**Key:** value` pair of the header blockquote. Relate has no map properties (O10), so it is stored as the JSON string `header_json` (`store.encode_props()`); `store.py` decodes it, so callers always see a map |
 
 ### Section
 | Property | Type | Rules |
@@ -97,7 +97,7 @@ One node, `id = "meta"`: `schema_version` (int, starts at 1), `last_git_sha`, `l
 
 ### Agent, Event (graph-only)
 - **Agent**: `name`, `first_seen`, `last_seen` (any tool call with `agent`; decides stale claims, [SPEC-05 §3](SPEC-05-agent-tools.md#3-claims)), `last_changes_at` (time of this agent's last `what_changed` call; defines `since="last_session"`, [SPEC-05 §7](SPEC-05-agent-tools.md#7-what_changed)).
-- **Event**: `at`, `kind` (`task_claimed`, `task_released`, `task_completed`, `deviation_logged`, `section_changed`, `spec_added`, `spec_removed`, `milestone_done`, `sync`), `actor` (agent name or `human` or `sync`), `target_id`, `summary`, `data` (map: completion notes, files touched, commit; a JSON string if O10 says no maps). Append-only.
+- **Event**: `at`, `kind` (`task_claimed`, `task_released`, `task_completed`, `deviation_logged`, `section_changed`, `spec_added`, `spec_removed`, `milestone_done`, `sync`), `actor` (agent name or `human` or `sync`), `target_id`, `summary`, `data` (map: completion notes, files touched, commit; stored as the JSON string `data_json`, decoded by `store.py`, O10). Append-only.
 
 ### Graph-only state (canonical list)
 Everything below is lost by `sdd sync --reset` and is excluded from rebuild equivalence ([SPEC-10 §4](SPEC-10-testing-and-benchmark.md#4-invariant-suite) invariant 2). Everything else must be reproducible from Markdown, code and git.
@@ -173,9 +173,10 @@ A link whose target does not exist yet (a spec not written, a section renamed) c
 
 ## 6. Indexes and constraints
 
-- Unique `id` on every label. If Relate lacks uniqueness constraints (open item O6), `store.py` upserts with `MERGE` on `id` only, and `sdd doctor` checks for duplicates.
-- Property indexes on `Task.status`, `Task.milestone_id`, `File.path`, `Section.spec_id`, `Event.at` (if supported).
-- Full-text (stretch, if supported): `Section.title + text`, `File.path`.
+- Unique `id` on every label (`uniq_<label>_id`; Relate supports uniqueness constraints, O6). Upserts still `MERGE` on `id`; a duplicate `CREATE` fails with an integrity error.
+- Property indexes on `Task.status`, `Task.milestone_id`, `File.path`, `Section.spec_id`, `Event.at` (`idx_<label>_<property>`).
+- Full-text: `ft_section_text` (`Section.title + text`) and `ft_file_path` (`File.path`), queried with `CALL db.index.fulltext.queryNodes(name, text)` from `service/` (the query guard rejects `CALL`).
+- All created by `graph/schema.py` (`ensure()`, idempotent, `IF NOT EXISTS`) when the daemon or `sdd sync` opens the store. `schema.SCHEMA_VERSION` (now 1) is the code's version; `Meta.schema_version` records the version a store was built with.
 
 ## 7. Label → milestone map
 

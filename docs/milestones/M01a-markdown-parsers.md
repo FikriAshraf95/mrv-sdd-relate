@@ -1,6 +1,6 @@
 # M01a — Markdown parsers
 
-> **Depends on:** [M00b](M00b-relate-access-layer.md) · **Blocks:** [M01b](M01b-graph-sync.md)
+> **Depends on:** [M00b](done/M00b-relate-access-layer.md) · **Blocks:** [M01b](M01b-graph-sync.md)
 > **Read first:** [SPEC-03 (whole file)](../specs/SPEC-03-markdown-parsing.md) · [SPEC-02 §1–2](../specs/SPEC-02-graph-schema.md#1-ids-and-common-properties) · [SPEC-10 §3](../specs/SPEC-10-testing-and-benchmark.md#3-fixtures)
 > **Model:** Opusplan. Two real formats and a reference grammar with ranges, slugs and code-span rules. Write `M01a-plan.md` first.
 > **Split from:** M01 (2026-11-21)

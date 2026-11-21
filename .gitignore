@@ -3,7 +3,9 @@
 /.sdd/graph/
 /.sdd/daemon.json
 /.sdd/*.lock
-**/.sdd/graph/.cypherlite.*
+# A writable open recreates .cypherlite.writer; the .cypherlite.lock markers stay in committed
+# stores (root and wal/), because a read-only open needs them (D001).
+.cypherlite.writer
 
 # secrets
 .env

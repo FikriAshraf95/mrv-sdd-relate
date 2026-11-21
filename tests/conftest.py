@@ -10,11 +10,14 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
+
+from sdd.graph import schema
+from sdd.graph.store import Store
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -102,3 +105,15 @@ def project(tmp_path: Path) -> MakeProject:
         return dest
 
     return make
+
+
+@pytest.fixture
+def store(tmp_path: Path) -> Iterator[Store]:
+    """A real Relate directory store in ``tmp_path`` with the SPEC-02 §6 schema (SPEC-10 §2).
+
+    Never mocked. Closed (queue drained, checkpointed) after the test.
+    """
+    st = Store.open(tmp_path / "store" / "graph")
+    schema.ensure(st)
+    yield st
+    st.close()

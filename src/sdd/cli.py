@@ -19,6 +19,7 @@ import typer
 
 from sdd import __version__, config
 from sdd.errors import SddError
+from sdd.service import info as info_service
 
 # SPEC-08 §1 rule 3
 EXIT_CODES: dict[str, int] = {
@@ -130,3 +131,36 @@ def fail(err: SddError, as_json: bool) -> NoReturn:
     else:
         print(f"error ({err.code}): {err.message}", file=sys.stderr)
     raise typer.Exit(EXIT_CODES.get(err.code, 1))
+
+
+@app.command()
+def info(
+    ctx: typer.Context,
+    project: ProjectOpt = None,
+    store: StoreOpt = None,
+    as_json: JsonOpt = False,
+) -> None:
+    """Project root, store path, daemon, node and relationship counts, schema version."""
+    settings, use_json = resolve(ctx, project, store, as_json)
+    try:
+        result = info_service.info(settings)
+    except SddError as err:
+        fail(err, use_json)
+    if use_json:
+        emit(result)
+        return
+    state = "" if result["store_exists"] else " (not created yet)"
+    stored = result["store_schema_version"]
+    lines = [
+        ("project", result["project"]),
+        ("store", f"{result['store']}{state}"),
+        ("daemon", "none"),
+        ("schema version", f"{result['schema_version']} (store: {stored or 'not set'})"),
+        ("nodes", str(result["total_nodes"])),
+        *((f"  {label}", str(n)) for label, n in result["nodes"].items()),
+        ("relationships", str(result["total_relationships"])),
+        *((f"  {kind}", str(n)) for kind, n in result["relationships"].items()),
+    ]
+    width = max(len(key) for key, _ in lines) + 2
+    for key, value in lines:
+        typer.echo(f"{key:<{width}}{value}")

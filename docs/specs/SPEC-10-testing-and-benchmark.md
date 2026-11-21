@@ -13,7 +13,7 @@
 ## 2. Test host
 
 - `project` fixture: copies a fixture repo into `tmp_path`, optionally `git init`s it with scripted commits (git CLI, no network).
-- `store` fixture: a real Relate directory store in `tmp_path`.
+- `store` fixture: a real Relate directory store in `tmp_path` (`graph.store.Store`), with the [SPEC-02 §6](SPEC-02-graph-schema.md#6-indexes-and-constraints) schema applied; closed (queue drained, checkpointed) after the test.
 - `app` fixture: the daemon's Starlette app on a real store, driven through Starlette's `TestClient` (in-process, no sockets). `public_app` does the same in public mode.
 - Watcher tests use `SDD_WATCH=poll` with a 0.1 s interval.
 - Concurrency tests use real threads against the real write queue.

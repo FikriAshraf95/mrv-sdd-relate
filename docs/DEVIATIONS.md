@@ -52,4 +52,4 @@ Open deviations are folded into the specs at M99 (and whenever one spec collects
 
 | # | Title | Milestone | Spec | Status |
 |---|---|---|---|---|
-| — | *(none yet)* | | | |
+| [D001](deviations/D001-store-copies-keep-lock-markers.md) | Committed store copies keep the `.cypherlite.lock` markers | M00b | [SPEC-08 §3](specs/SPEC-08-cli-and-exports.md#3-exports-and-snapshots) | Resolved → spec updated |
