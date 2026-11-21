@@ -1,0 +1,22 @@
+# live graph store (never commit; see DEC-001)
+/.sdd/graph/
+/.sdd/daemon.json
+/.sdd/*.lock
+
+# secrets
+.env
+deploy/.env
+
+# python / tooling
+__pycache__/
+*.pyc
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# playwright MCP output
+/playwright/
+
+# claude local settings
+.claude/settings.local.json
