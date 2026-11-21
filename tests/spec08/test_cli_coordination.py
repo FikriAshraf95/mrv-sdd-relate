@@ -45,8 +45,8 @@ def test_walkthrough_through_the_daemon(runtime: Runtime, fake_daemon: FakeDaemo
         ],
     )  # fmt: skip
     assert dev.exit_code == 0, dev.output
-    assert "D002 logged" in dev.stdout
-    assert "| [D002]" in read(runtime, INDEX)
+    assert "D003 logged" in dev.stdout
+    assert "| [D003]" in read(runtime, INDEX)
     done = runner.invoke(
         app,
         ["done", "M01.1", "--agent", "a", "--notes", "ok", "--files", "a.py", "--project", root],
@@ -65,7 +65,7 @@ def test_walkthrough_through_the_daemon(runtime: Runtime, fake_daemon: FakeDaemo
     assert "DONE (" in ms.stdout
     code, changed = _json(["changes", "--since", start, "--project", root])
     assert code == 0
-    assert [d["id"] for d in changed["deviations"]] == ["D002"]  # type: ignore[attr-defined]
+    assert [d["id"] for d in changed["deviations"]] == ["D003"]  # type: ignore[attr-defined]
     assert [m["id"] for m in changed["milestones_done"]] == ["M01"]  # type: ignore[attr-defined]
     seen = set(fake_daemon.seen)
     assert {"POST /api/deviations", "POST /api/milestones/M01/complete", "GET /api/changes"} <= seen

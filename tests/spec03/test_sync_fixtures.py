@@ -66,10 +66,13 @@ def test_spec03_ac04_link_text_beats_anchor(project: MakeProject, store: Store) 
 def test_spec03_ac05_stable_and_legacy_task_nodes(project: MakeProject, store: Store) -> None:
     sync_project(project("tool_style"), store)
     stable = store.read("MATCH (t:Task) RETURN t.id AS id, t.stable_id AS s ORDER BY id")
-    assert stable == [{"id": f"M01.{n}", "s": True} for n in (1, 2, 3, 4)]
+    ids = [f"M01.{n}" for n in (1, 2, 3, 4)] + [f"M02.{n}" for n in (1, 2, 3)]
+    assert stable == [{"id": i, "s": True} for i in ids]
     assert {(a, b) for a, b, _ in _rels(store, "BLOCKED_BY")} == {
         ("M01.2", "M01.1"),
         ("M01.3", "M01.2"),
+        ("M02.2", "M02.1"),
+        ("M02.3", "M02.2"),
     }
     assert _rels(store, "INCLUDES", "M01")[0][1] == "M01.1"
 

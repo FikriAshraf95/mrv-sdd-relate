@@ -122,29 +122,29 @@ def test_log_deviation_writes_file_row_note_and_links(runtime: Runtime) -> None:
     result = coord.log_deviation(
         runtime, "M01.2", "sonnet-1", affects=["src/kettle/brew.py"], **DEVIATION
     )
-    assert result["id"] == "D002"
-    assert result["path"] == "docs/deviations/D002-countdown-ticks-every-100-ms.md"
+    assert result["id"] == "D003"
+    assert result["path"] == "docs/deviations/D003-countdown-ticks-every-100-ms.md"
     assert result["amends"] == ["SPEC-01#2"]
     text = read(runtime, result["path"])
-    assert text.startswith("# D002 — Countdown ticks every 100 ms\n")
+    assert text.startswith("# D003 — Countdown ticks every 100 ms\n")
     assert "- **Date / milestone:** " in text
     assert " · M01 · M01.2\n" in text
     assert "- **Spec:** [SPEC-01 §2](../specs/SPEC-01-timer.md#2-teas)\n" in text
     assert "- **Affects:** `src/kettle/brew.py`\n" in text
     assert "## Consequences\nNone.\n" in text
     index = read(runtime, INDEX).splitlines()
-    assert index[4].startswith("| [D002](deviations/D002-countdown-ticks-every-100-ms.md) |")
-    assert index[5].startswith("| [D001]")
+    assert index[4].startswith("| [D003](deviations/D003-countdown-ticks-every-100-ms.md) |")
+    assert index[5].startswith("| [D002]")
     assert (
-        "> **DEVIATION:** see [D002](../deviations/D002-countdown-ticks-every-100-ms.md) — "
+        "> **DEVIATION:** see [D003](../deviations/D003-countdown-ticks-every-100-ms.md) — "
         "Countdown ticks every 100 ms"
     ) in read(runtime, SPEC)
     rels = runtime.store.read(
-        "MATCH (d:Deviation {id: 'D002'})-[r]->(n) RETURN type(r) AS t, n.id AS id ORDER BY t, id"
+        "MATCH (d:Deviation {id: 'D003'})-[r]->(n) RETURN type(r) AS t, n.id AS id ORDER BY t, id"
     )
     pairs = {(r["t"], r["id"]) for r in rels}
     assert {("AMENDS", "SPEC-01#2"), ("RAISED_IN", "M01"), ("RAISED_IN", "M01.2")} <= pairs
-    assert events(runtime, "deviation_logged")[-1]["target_id"] == "D002"
+    assert events(runtime, "deviation_logged")[-1]["target_id"] == "D003"
 
 
 def test_log_deviation_on_a_whole_spec(runtime: Runtime) -> None:
@@ -176,7 +176,10 @@ def test_log_deviation_errors_change_nothing(runtime: Runtime) -> None:
     assert {p: read(runtime, p) for p in before} == before
     assert sorted(
         p.name for p in (runtime.settings.project_root / "docs/deviations").iterdir()
-    ) == ["D001-steep-time-default.md"]
+    ) == [
+        "D001-steep-time-default.md",
+        "D002-document-title-optional.md",
+    ]
 
 
 def test_writeback_off_refuses_deviations_and_milestones(make_runtime: MakeRuntime) -> None:

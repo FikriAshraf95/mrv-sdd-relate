@@ -11,7 +11,7 @@ from sdd import config
 from sdd.graph import schema
 from sdd.graph.store import Store, Tx
 from sdd.service import indexing
-from sdd.sync import indexer
+from sdd.sync import pipeline
 from tests.conftest import MakeProject
 from tests.graph_dump import Clock, claim, dump, write_files
 
@@ -58,7 +58,7 @@ def test_inv02_reset_reproduces_everything_but_graph_only_state(
 
     with Store.open(store_path) as store:
         schema.ensure(store)
-        indexer.full_sync(store, settings)
+        pipeline.run(store, settings, pipeline.SyncState.new(settings), full=True)
         todo = store.read(
             "MATCH (t:Task {checked: false}) RETURN t.id AS id, t.source_path AS p, "
             "t.source_line AS line, t.milestone_id AS m ORDER BY t.id"
@@ -93,7 +93,7 @@ def test_inv02_reset_reproduces_everything_but_graph_only_state(
 
         store.write(tool_state)
         clock.tick()
-        indexer.full_sync(store, settings)
+        pipeline.run(store, settings, pipeline.SyncState.new(settings), full=True)
         milestones = {todo[1]["m"], ticked["m"]}
         before = _comparable(store, {claimed}, milestones)
         assert store.read("MATCH (e:Event) RETURN count(e) AS n")[0]["n"] >= 2  # edit + tick

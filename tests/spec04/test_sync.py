@@ -304,7 +304,7 @@ def test_duplicate_id_first_path_wins(tmp_path: Path, store: Store) -> None:
 
 def test_index_mismatch_is_reported(project: MakeProject, store: Store) -> None:
     root = project("tool_style")
-    write_files(root, {"docs/deviations/D002-extra.md": "# D002 — Extra\n\n- **Status:** Open\n"})
+    write_files(root, {"docs/deviations/D003-extra.md": "# D003 — Extra\n\n- **Status:** Open\n"})
     report = sync_project(root, store)
     assert any(w.code == "deviation_index_mismatch" for w in report.warnings)
 

@@ -121,6 +121,8 @@ Everything below is lost by `sdd sync --reset` and is excluded from rebuild equi
 
 File contents are **never** stored. The graph holds connections and intent; agents still read and grep files.
 
+There is **no root Folder**: a top-level file or folder has no `CONTAINS` parent. The File properties apply to SDD documents too (the walker writes `language`, `size`, `lines` and `is_test` for every file), but only the indexer sets an SDD document's `content_hash` ([SPEC-04 §4](SPEC-04-sync.md#4-code-walker)); a code file's hash is the walker's. `language` and `lines` are absent when not known.
+
 ## 4. Relationships
 
 | Type | From → To | Source |

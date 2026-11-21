@@ -9,7 +9,9 @@ mount). It keeps one snapshot ``{path: (mtime_ns, size)}`` and runs two schedule
 
 ``native`` uses one recursive ``watchdog`` observer. Both feed one debouncer: paths collect until
 ``debounce`` seconds pass without a new one, then one :class:`Batch` goes to ``on_batch`` on a
-dedicated thread, so batches never overlap. Non-SDD paths are delivered too (M04a uses them).
+dedicated thread, so batches never overlap. Non-SDD paths are delivered too (the code walker uses
+them). Both polls and the native handler share the walker's :class:`~sdd.sync.files.IgnoreRules`;
+the code poll re-reads the ignore files on every poll (SPEC-04 §1).
 """
 
 from __future__ import annotations
@@ -27,7 +29,7 @@ from watchdog.observers import Observer
 
 from sdd.config import Settings
 from sdd.errors import SddError
-from sdd.sync import indexer
+from sdd.sync import files, indexer
 
 __all__ = ["Batch", "Watcher", "glob_bases"]
 
@@ -67,6 +69,10 @@ def glob_bases(settings: Settings) -> dict[str, bool]:
             recursive = len(literal) < len(folders) and folders[len(literal)] == "**" and bool(base)
             bases[base] = bases.get(base, False) or recursive
     return bases
+
+
+def _join(folder: str, name: str) -> str:
+    return f"{folder}/{name}" if folder else name
 
 
 class _Debouncer:
@@ -151,6 +157,7 @@ class Watcher:
         on_batch: Callable[[Batch], None],
         *,
         debounce: float = 0.3,
+        rules: files.IgnoreRules | None = None,
     ) -> None:
         self.settings = settings
         self.mode = settings.watch
@@ -159,6 +166,7 @@ class Watcher:
         self._on_batch = on_batch
         self._root = settings.project_root
         self._classifier = indexer.Classifier(settings)
+        self._rules = rules or files.IgnoreRules(self._root)
         self._bases = glob_bases(settings)
         self._lock = threading.Lock()  # guards _sdd and _snap
         self._sdd: dict[str, str] = {}
@@ -174,7 +182,7 @@ class Watcher:
         """Take the initial snapshot (no batch for it), then start the threads."""
         self._debounce.start()
         if self.mode == "native":
-            self._sdd = indexer.discover(self.settings)
+            self._sdd = indexer.discover(self.settings, rules=self._rules)
             observer = Observer()
             observer.schedule(_NativeHandler(self), str(self._root), recursive=True)
             observer.start()
@@ -254,7 +262,10 @@ class Watcher:
             top = self._root / base if base else self._root
             if recursive:
                 for folder, dirs, names in os.walk(top):
-                    dirs[:] = [d for d in dirs if not indexer.ignored_dir(d)]
+                    rel_dir = self._rel(folder)
+                    dirs[:] = [
+                        d for d in dirs if not self._rules.ignored(_join(rel_dir, d), is_dir=True)
+                    ]
                     found += self._rel_md(folder, names)
             else:
                 try:
@@ -264,29 +275,20 @@ class Watcher:
                 found += self._rel_md(str(top), names)
         return found
 
+    def _rel(self, folder: str) -> str:
+        rel = Path(folder).relative_to(self._root).as_posix()
+        return "" if rel == "." else rel
+
     def _rel_md(self, folder: str, names: list[str]) -> list[str]:
-        return [
-            Path(folder, n).relative_to(self._root).as_posix()
-            for n in names
-            if n.endswith(".md") and not indexer.ignored_dir(n)
-        ]
+        rel_dir = self._rel(folder)
+        rels = (_join(rel_dir, n) for n in names if n.endswith(".md"))
+        return [rel for rel in rels if not self._rules.ignored(rel)]
 
     def _poll_code(self) -> set[str]:
-        new: dict[str, _Stat] = {}
-        for folder, dirs, names in os.walk(self._root):
-            if self._stop.is_set():
-                return set()  # shutting down: a long walk must not hold the daemon up
-            dirs[:] = [d for d in dirs if not indexer.ignored_dir(d)]
-            for name in names:
-                if indexer.ignored_dir(name):
-                    continue
-                full = os.path.join(folder, name)
-                try:
-                    st = os.stat(full)
-                except OSError:
-                    continue
-                rel = Path(full).relative_to(self._root).as_posix()
-                new[rel] = (st.st_mtime_ns, st.st_size)
+        self._rules.invalidate()  # a .gitignore edit is picked up by the next code poll
+        new = files.walk(self._root, self._rules, self._stop)
+        if self._stop.is_set():
+            return set()  # shutting down: a long walk must not hold the daemon up
         with self._lock:
             old = self._snap
             changed = {p for p, s in new.items() if old.get(p) != s} | (old.keys() - new.keys())
@@ -321,7 +323,7 @@ class Watcher:
             rel = Path(raw).relative_to(self._root).as_posix()
         except ValueError:
             return
-        if not rel or rel == "." or indexer.ignored_path(rel):
+        if not rel or rel == "." or self._rules.ignored(rel):
             return
         with self._lock:
             if removed:

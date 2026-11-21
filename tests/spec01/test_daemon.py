@@ -83,7 +83,7 @@ def test_spec01_ac02_sync_refuses_status_routes(runtime: Runtime, fake_daemon: F
     code, out = _invoke("--json", "status", "--project", root)
     assert code == 0, out
     assert "GET /api/status" in fake_daemon.seen
-    assert [m["id"] for m in json.loads(out)["milestones"]] == ["M01"]
+    assert [m["id"] for m in json.loads(out)["milestones"]] == ["M01", "M02"]
 
     code, out = _invoke("status", "--project", root)  # the text output is unchanged
     assert code == 0

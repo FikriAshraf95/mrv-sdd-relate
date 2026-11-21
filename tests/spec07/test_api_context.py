@@ -37,7 +37,7 @@ def test_query_endpoint(app: TestClient) -> None:
     assert ok.status_code == 200
     assert ok.json() == {
         "columns": ["id"],
-        "rows": [["SPEC-01"]],
+        "rows": [["SPEC-01"], ["SPEC-02"]],
         "truncated": False,
         "synced_at": ok.json()["synced_at"],
     }

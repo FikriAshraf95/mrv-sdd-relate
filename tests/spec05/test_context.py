@@ -50,12 +50,11 @@ def _rag(make_runtime: MakeRuntime, **kwargs: str) -> Runtime:
 
 
 def _feature(runtime: Runtime) -> None:
-    """A Feature with a file, as M04b will create it (only so `code` has content here)."""
+    """A Feature on the walker's File node, as M04b will create it (so `code` has content)."""
     runtime.store.write(
         lambda tx: tx.run(
-            "MATCH (p:Spec {id: 'SPEC-01'}) "
+            "MATCH (p:Spec {id: 'SPEC-01'}) MATCH (x:File {id: 'file:src/kettle/brew.py'}) "
             "CREATE (f:Feature {id: 'feature:brewing', name: 'Brewing', slug: 'brewing'}) "
-            "CREATE (x:File {id: 'file:src/kettle/brew.py', path: 'src/kettle/brew.py'}) "
             "CREATE (f)-[:SPECIFIED_BY {src: 'test'}]->(p) "
             "CREATE (f)-[:IMPLEMENTED_IN {src: 'walker'}]->(x)"
         )

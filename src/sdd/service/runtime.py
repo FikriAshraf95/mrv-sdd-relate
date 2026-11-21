@@ -1,7 +1,9 @@
-"""The daemon's shared state: store, event bus, parse cache and the sync lock (plan M02 §4).
+"""The daemon's shared state: store, event bus, sync state and the sync lock (plan M02 §4, M04a §6).
 
-One :class:`Runtime` per daemon. Every sync (startup, watcher batch, ``POST /api/sync``) and every
-tick goes through ``sync_lock``, so the parse cache and the report are never used by two threads.
+One :class:`Runtime` per daemon. Every sync (startup, watcher batch, HEAD change,
+``POST /api/sync``) and every tick goes through ``sync_lock``, so the parse cache, the code cache
+and the report are never used by two threads. All of them run the one order of
+:func:`sdd.sync.pipeline.run`.
 """
 
 from __future__ import annotations
@@ -20,7 +22,7 @@ from sdd.graph.store import Store
 from sdd.ids import InvalidIdError, label_of
 from sdd.service import indexing
 from sdd.service.events import EventBus
-from sdd.sync import indexer
+from sdd.sync import indexer, pipeline
 from sdd.sync.watcher import Batch
 
 __all__ = ["Runtime", "publish_changed"]
@@ -53,7 +55,11 @@ class Runtime:
     cache: indexer.ParseCache = field(default_factory=dict)
     last_report: indexer.SyncReport | None = None
     synced_at: str | None = None
-    tracked: set[str] = field(default_factory=set)  # SDD paths of the last sync
+    state: pipeline.SyncState | None = None  # parse cache, code cache, ignore rules, tracked
+
+    def __post_init__(self) -> None:
+        if self.state is None:
+            self.state = pipeline.SyncState.new(self.settings, self.cache)
 
     @classmethod
     def open(cls, settings: Settings) -> Runtime:
@@ -66,20 +72,49 @@ class Runtime:
             raise
         return cls(settings=settings, store=store, started_at=settings.now_iso())
 
-    def sync(self, *, full: bool = True, files: Mapping[str, str] | None = None) -> dict[str, Any]:
-        """One sync under the lock; publishes one ``graph_changed`` if anything changed."""
+    def sync(
+        self,
+        *,
+        full: bool = True,
+        files: Mapping[str, str] | None = None,
+        paths: Iterable[str] | None = None,
+        git: bool = False,
+    ) -> dict[str, Any]:
+        """One sync under the lock; publishes one ``graph_changed`` if anything changed.
+
+        ``files`` is an explicit set of SDD documents (``{path: kind}``) for a non-full sync; with
+        no ``paths`` they are the paths the sync looks at.
+        """
+        report = self._run(full=full, files=files, paths=paths, git=git)
+        return indexing.report_dict(self.settings, report, schema.counts(self.store))
+
+    def _run(
+        self,
+        *,
+        full: bool,
+        files: Mapping[str, str] | None = None,
+        paths: Iterable[str] | None = None,
+        git: bool = False,
+    ) -> indexer.SyncReport:
+        assert self.state is not None
+        if paths is None:
+            paths = files.keys() if files is not None else ()
         with self.sync_lock:
-            tracked = dict(files) if files is not None else indexer.discover(self.settings)
-            report = indexer.sync(
-                self.store, self.settings, full=full, files=tracked, cache=self.cache
+            report = pipeline.run(
+                self.store,
+                self.settings,
+                self.state,
+                full=full,
+                paths=paths,
+                sdd_files=files,
+                git_sync=git,
             )
-            counts = schema.counts(self.store)
-            self.tracked = set(tracked)
-            self.last_report = report
+            if report.indexed:
+                self.last_report = report
             self.synced_at = self.settings.now_iso()
         if report.changed_ids:
             publish_changed(self.events, report.changed_ids)
-        return indexing.report_dict(self.settings, report, counts)
+        return report
 
     def synced(self) -> str | None:
         """The last sync time (``synced_at`` on every tool result, SPEC-05 §1 rule 4)."""
@@ -89,13 +124,18 @@ class Runtime:
         return rows[0]["at"] if rows else None
 
     def on_batch(self, batch: Batch) -> None:
-        """Watcher callback: sync only when the batch touched an SDD document."""
-        if not any(p in batch.sdd_files or p in self.tracked for p in batch.paths):
-            return  # M04a: code paths are handled here
+        """Watcher callback: every batch goes through the pipeline (code paths included)."""
         try:
-            self.sync(full=False, files=batch.sdd_files)
+            self._run(full=False, files=batch.sdd_files, paths=batch.paths)
         except SddError as exc:
             log.error("sync of %d paths failed: %s", len(batch.paths), exc.code)
+
+    def on_head(self, sha: str) -> None:
+        """HEAD poller callback: sync the new commits (the code step covers their new files)."""
+        try:
+            self._run(full=False, git=True)
+        except SddError as exc:
+            log.error("git sync at %s failed: %s", sha[:7], exc.code)
 
     def close(self) -> None:
         """Drain the write queue, checkpoint and close the store."""

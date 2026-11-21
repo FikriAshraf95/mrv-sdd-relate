@@ -12,7 +12,7 @@ from typing import Any
 
 from sdd import config
 from sdd.graph.store import Store, Tx
-from sdd.sync import indexer
+from sdd.sync import indexer, pipeline
 
 Rels = Counter[tuple[str, str, str, frozenset[tuple[str, str]]]]
 
@@ -42,6 +42,47 @@ def sync_project(
     if writeback is not None:
         settings = replace(settings, writeback=writeback)
     return indexer.full_sync(store, settings)
+
+
+@dataclass
+class Sync:
+    """One project, one store and one :class:`SyncState`, like the daemon's runtime (M04a)."""
+
+    root: Path
+    store: Store
+    clock: Clock = field(default_factory=Clock)
+    max_files: int | None = None
+    git_max_commits: int | None = None
+    state: pipeline.SyncState = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.state = pipeline.SyncState.new(self.settings())
+
+    def settings(self) -> config.Settings:
+        settings = settings_for(self.root, self.clock)
+        if self.max_files is not None:
+            settings = replace(settings, max_files=self.max_files)
+        if self.git_max_commits is not None:
+            settings = replace(settings, git_max_commits=self.git_max_commits)
+        return settings
+
+    def full(self) -> indexer.SyncReport:
+        self.clock.tick()
+        return pipeline.run(self.store, self.settings(), self.state, full=True)
+
+    def batch(self, *paths: str) -> indexer.SyncReport:
+        """A watcher batch of ``paths`` (the SDD set is the current one)."""
+        self.clock.tick()
+        settings = self.settings()
+        sdd = indexer.discover(settings)
+        return pipeline.run(
+            self.store, settings, self.state, full=False, paths=paths, sdd_files=sdd
+        )
+
+    def head(self) -> indexer.SyncReport:
+        """What the HEAD poller triggers: a git sync only."""
+        self.clock.tick()
+        return pipeline.run(self.store, self.settings(), self.state, full=False, git_sync=True)
 
 
 def dump(

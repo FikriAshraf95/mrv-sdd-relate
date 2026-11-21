@@ -48,7 +48,7 @@ def test_spec09_ac04_guard_accepts_a_read(runtime: Runtime) -> None:
     query_guard.check("MATCH (n:Task) RETURN n.id LIMIT 5")
     result = query_guard.run_query(runtime, "MATCH (n:Task) RETURN n.id LIMIT 5")
     assert result["columns"] == ["n.id"]
-    assert sorted(r[0] for r in result["rows"]) == ["M01.1", "M01.2", "M01.3", "M01.4"]
+    assert sorted(r[0] for r in result["rows"]) == ["M01.1", "M01.2", "M01.3", "M01.4", "M02.1"]
     assert result["truncated"] is False
     assert result["synced_at"]
 

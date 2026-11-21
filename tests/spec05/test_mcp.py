@@ -70,13 +70,13 @@ def test_mcp_tools_in_process(runtime: Runtime) -> None:
     assert _payload(out["claim"])["agent"] == "sonnet-1"
     assert out["clash"].is_error is True
     assert _payload(out["clash"])["error"]["code"] == "already_claimed"
-    assert _payload(out["deviation"])["id"] == "D002"
+    assert _payload(out["deviation"])["id"] == "D003"
     assert _payload(out["done"])["unblocked"][0]["id"] == "M01.2"
     assert _payload(out["incomplete"])["error"]["code"] == "milestone_incomplete"
     assert _payload(out["release"])["released"] is False
     changed = _payload(out["changes"])
     assert changed["first_session"] is True
-    assert [d["id"] for d in changed["deviations"]] == ["D002"]
+    assert [d["id"] for d in changed["deviations"]] == ["D003"]
     for name in ("claim", "done", "changes"):
         assert _payload(out[name])["synced_at"]
 

@@ -56,7 +56,7 @@ def test_claim_release_complete_over_http(app: TestClient) -> None:
 def test_deviation_and_milestone_over_http(app: TestClient) -> None:
     logged = app.post("/api/deviations", json=BODY)
     assert logged.status_code == 200, logged.text
-    assert logged.json()["id"] == "D002"
+    assert logged.json()["id"] == "D003"
     unknown = app.post("/api/deviations", json={**BODY, "amends": ["SPEC-01 §9"]})
     assert unknown.status_code == 404
     assert unknown.json()["error"]["code"] == "unknown_section"
@@ -68,7 +68,7 @@ def test_deviation_and_milestone_over_http(app: TestClient) -> None:
     assert missing.status_code == 404
 
     changed = app.get("/api/changes", params={"since": "last_session", "agent": "o"}).json()
-    assert [d["id"] for d in changed["deviations"]] == ["D002"]
+    assert [d["id"] for d in changed["deviations"]] == ["D003"]
     assert changed["first_session"] is True
 
 

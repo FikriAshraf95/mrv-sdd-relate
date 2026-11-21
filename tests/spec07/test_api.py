@@ -32,7 +32,7 @@ def test_health_shape(app: TestClient, runtime: Runtime) -> None:
 def test_status_matches_the_service(app: TestClient, runtime: Runtime) -> None:
     body = app.get("/api/status").json()
     assert body == api_views.status(runtime)
-    assert [m["id"] for m in body["milestones"]] == ["M01"]
+    assert [m["id"] for m in body["milestones"]] == ["M01", "M02"]
     assert body["milestones"][0]["total"] == 4
 
 
@@ -47,7 +47,16 @@ def test_milestones_in_order_with_counts(app: TestClient) -> None:
             "done": 1,
             "claimed": 0,
             "total": 4,
-        }
+        },
+        {
+            "id": "M02",
+            "title": "Ingestion",
+            "status": "todo",
+            "order": "0002",
+            "done": 0,
+            "claimed": 0,
+            "total": 3,
+        },
     ]
 
 
@@ -60,8 +69,9 @@ def test_node_by_percent_encoded_section_and_file_ids(app: TestClient) -> None:
     assert any(r["id"] == "SPEC-01" for r in body["relationships"]["HAS_SECTION"])
 
     file = app.get("/api/nodes/file%3Asrc%2Fkettle%2Fbrew.py")  # a path-keyed ID with `:` and `/`
-    # code files get File nodes in M04a; until then the Markdown ones answer the same way
-    assert file.status_code == 404
+    assert file.status_code == 200  # code files get File nodes from M04a
+    assert file.json()["id"] == "file:src/kettle/brew.py"
+    assert file.json()["props"]["language"] == "python"
     md = app.get("/api/nodes/file%3Adocs%2Fspecs%2FSPEC-01-timer.md")
     assert md.status_code == 200
     assert md.json()["id"] == "file:docs/specs/SPEC-01-timer.md"

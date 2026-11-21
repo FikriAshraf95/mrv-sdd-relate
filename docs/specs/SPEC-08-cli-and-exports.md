@@ -18,7 +18,7 @@
 | `sdd info` | Project root, store path, whether a daemon runs (and its port), node and relationship counts per label and type, schema version |
 | `sdd daemon [--host 127.0.0.1] [--port 8770]` | Run the daemon ([SPEC-01 §5](SPEC-01-architecture.md#5-daemon-lifecycle)) |
 | `sdd public --store PATH [--port 8780]` | Run the read-only public server ([SPEC-09 §4](SPEC-09-security.md#4-public-mode)) |
-| `sdd sync [--reset]` | One full sync without a daemon; `--reset` empties the store first, in place (graph-only state is lost; asks unless `--yes`; `--json` needs `--yes`) |
+| `sdd sync [--reset]` | One full sync without a daemon (code walker, Markdown, git; [SPEC-04 §2, §4, §6](SPEC-04-sync.md)); `--reset` empties the store first, in place (graph-only state is lost; asks unless `--yes`; `--json` needs `--yes`). The `--json` result adds `code` (`added`, `updated`, `removed`, `folders`, `tests_links`, `capped`) and `git` (`added`, `removed`, `head`; `null` when skipped) |
 | `sdd status` | Milestones, task counts, claims, warnings, unresolved links, unticked tasks with COMPLETES commits |
 | `sdd doctor` | Reads the Markdown only and never opens the store, so it works on a read-only checkout. Every parser warning and unresolved link, deviation index mismatches, duplicate IDs; exit 1 if any `error` |
 | `sdd ids --write [--milestone M17]` | Add stable task IDs to legacy checkbox lines ([SPEC-03 §4.2](SPEC-03-markdown-parsing.md#42-task-ids)); shows a diff and asks unless `--yes` |

@@ -62,7 +62,7 @@ def test_reads_without_a_daemon(project: MakeProject) -> None:
     out = runner.invoke(
         app, ["query", "MATCH (s:Spec) RETURN s.id AS id", "--project", root, "--store", *store]
     )
-    assert out.stdout.splitlines() == ["id", '"SPEC-01"']
+    assert out.stdout.splitlines() == ["id", '"SPEC-01"', '"SPEC-02"']
 
 
 # ---------------------------------------------------------------- init

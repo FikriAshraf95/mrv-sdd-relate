@@ -109,7 +109,7 @@ def test_sync_json_and_second_run_is_a_noop(project: MakeProject, tmp_path: Path
     store = str(tmp_path / "graph")
     first = _json("sync", "--project", str(root), "--store", store)
     assert first["initial"] is True
-    assert first["unresolved_total"] == 2
+    assert first["unresolved_total"] == 4
     assert first["events"] == 0
     second = _json("sync", "--project", str(root), "--store", store)
     assert second["initial"] is False
@@ -134,7 +134,7 @@ def test_status_lists_milestones_and_tasks(project: MakeProject) -> None:
     root = project("tool_style")
     data = _json("status", "--project", str(root), "--store", ":memory:")
     milestones = data["milestones"]
-    assert [m["id"] for m in milestones] == ["M01"]  # type: ignore[index]
+    assert [m["id"] for m in milestones] == ["M01", "M02"]  # type: ignore[index]
     m01 = milestones[0]  # type: ignore[index]
     assert (m01["done"], m01["total"]) == (1, 4)
     assert [t["id"] for t in m01["tasks"]] == ["M01.1", "M01.2", "M01.3", "M01.4"]
@@ -162,8 +162,11 @@ def test_status_reads_a_synced_store_and_needs_one(project: MakeProject, tmp_pat
     assert "sdd sync" in json.loads(out)["error"]["message"]
     _json("sync", "--project", str(root), "--store", store)
     data = _json("status", "--project", str(root), "--store", store)
-    assert [m["id"] for m in data["milestones"]] == ["M01"]  # type: ignore[attr-defined,index]
-    assert data["unresolved"] == {"D001": ["brews", "src/kettle/brew.py"]}
+    assert [m["id"] for m in data["milestones"]] == ["M01", "M02"]  # type: ignore[attr-defined,index]
+    assert data["unresolved"] == {
+        "D001": ["brews", "src/kettle/brew.py"],
+        "D002": ["documents", "src/ingest/loader.py"],
+    }
 
 
 def test_doctor_exit_codes(project: MakeProject) -> None:

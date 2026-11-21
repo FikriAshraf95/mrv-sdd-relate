@@ -33,7 +33,7 @@
 | 16 | `GET /api/events` | ✓ | SSE stream ([§3](#3-live-events)) |
 | 17 | `POST /api/tasks/{id}/claim` · `/release` · `/complete` | ✗ | as the MCP write tools (used by the CLI and replay) |
 | 18 | `POST /api/deviations` · `POST /api/milestones/{id}/complete` | ✗ | as the MCP write tools |
-| 19 | `POST /api/sync` | ✗ | trigger a full scan |
+| 19 | `POST /api/sync` | ✗ | trigger a full scan (code, Markdown, git); the result is the `sdd sync` JSON, with `code` and `git` objects (`git` is `null` when skipped) |
 | 20 | `/mcp` | ✗ | MCP streamable HTTP ([SPEC-05](SPEC-05-agent-tools.md)) |
 | 21 | `GET /api/next?milestone=&limit=&agent=` | ✓ | as MCP `next_tasks` (used by `sdd next` when a daemon runs) |
 

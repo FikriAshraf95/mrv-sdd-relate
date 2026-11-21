@@ -30,6 +30,7 @@ from sdd.service.runtime import Runtime
 from sdd.web.api import create_app
 
 FIXTURES = Path(__file__).parent / "fixtures"
+collect_ignore = ["fixtures"]  # fixture repos hold test-shaped files; never collect them
 
 
 @dataclass(frozen=True)

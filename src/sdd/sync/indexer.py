@@ -12,14 +12,11 @@ batches (plan M02 §2).
 
 from __future__ import annotations
 
-import hashlib
-import os
 import posixpath
 import re
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field, replace
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pathspec
 
@@ -42,6 +39,11 @@ from sdd.parse import (
 )
 from sdd.parse.md import id_slug
 from sdd.parse.model import warn
+from sdd.sync.files import IgnoreRules, builtin_ignored, file_hash, iter_files
+
+if TYPE_CHECKING:
+    from sdd.sync.files import CodeReport
+    from sdd.sync.git import GitReport
 
 __all__ = [
     "Analysis",
@@ -56,8 +58,6 @@ __all__ = [
     "discover",
     "file_hash",
     "full_sync",
-    "ignored_dir",
-    "ignored_path",
     "reset",
     "sync",
     "sync_tx",
@@ -65,7 +65,6 @@ __all__ = [
 
 # Phase 1 order (SPEC-04 §2 step 4).
 KIND_ORDER = ("spec", "milestone", "plan", "deviation", "deviation_index", "doc")
-_PRUNED_DIRS = frozenset({"node_modules", "__pycache__"})
 # path -> (content hash, kind, pristine parse result); see analyse()
 ParseCache = dict[str, tuple[str, str, ParseResult]]
 _PLAN_NAME = re.compile(r"^M\d+[a-z]?-plan\.md$")
@@ -81,31 +80,12 @@ _PARSERS = {
 }
 
 
-def file_hash(data: bytes) -> str:
-    """``File.content_hash``: sha256 hex of the raw bytes (write-back uses the same function)."""
-    return hashlib.sha256(data).hexdigest()
-
-
 # ---------------------------------------------------------------- discovery
 
 
 def _spec(globs: Iterable[str]) -> pathspec.PathSpec[Any]:
     # gitignore patterns match a slash-less pattern at any depth; config globs are project-relative
     return pathspec.PathSpec.from_lines("gitignore", [g if "/" in g else f"/{g}" for g in globs])
-
-
-def ignored_dir(name: str) -> bool:
-    """Whether a folder or file name is skipped everywhere (SPEC-04 §1): dot names (``.sdd/``,
-    ``.git/``), ``node_modules``, ``__pycache__``. The watcher and ``discover`` share this.
-
-    # M04a: replace or extend with the code walker's ``.gitignore`` rules.
-    """
-    return name.startswith(".") or name in _PRUNED_DIRS
-
-
-def ignored_path(rel: str) -> bool:
-    """Whether any segment of a project-relative POSIX path is ignored."""
-    return any(ignored_dir(part) for part in rel.split("/"))
 
 
 class Classifier:
@@ -115,11 +95,18 @@ class Classifier:
         self._specs = {key: _spec(globs) for key, globs in settings.paths.items()}
 
     def classify(self, rel: str) -> str | None:
-        """The SDD kind of ``rel`` (a ``.md`` file under no ignored folder), else ``None``."""
+        """The SDD kind of ``rel`` (a ``.md`` file under no built-in skip), else ``None``.
+
+        Only the built-in skips are checked here; ``.gitignore`` rules are applied by the walkers.
+        """
         name = rel.rsplit("/", 1)[-1]
-        if not name.endswith(".md") or ignored_path(rel):
+        if not name.endswith(".md") or builtin_ignored(rel):
             return None
         return _classify(rel, name, self._specs)
+
+    def is_test(self, rel: str) -> bool:
+        """Whether ``rel`` matches a ``tests`` glob (SPEC-03 §1)."""
+        return self._specs["tests"].match_file(rel)
 
 
 def classify(settings: Settings, rel: str) -> str | None:
@@ -127,20 +114,18 @@ def classify(settings: Settings, rel: str) -> str | None:
     return Classifier(settings).classify(rel)
 
 
-def discover(settings: Settings) -> dict[str, str]:
-    """``{project-relative POSIX path: kind}`` for every SDD Markdown file, sorted by path."""
+def discover(settings: Settings, *, rules: IgnoreRules | None = None) -> dict[str, str]:
+    """``{project-relative POSIX path: kind}`` for every SDD Markdown file, sorted by path.
+
+    Walks with the code walker's ignore rules (SPEC-04 §4), so an ignored Markdown file is not an
+    SDD document.
+    """
     classifier = Classifier(settings)
     root = settings.project_root
     found: dict[str, str] = {}
-    for folder, dirs, names in os.walk(root):
-        dirs[:] = sorted(d for d in dirs if not ignored_dir(d))
-        for name in names:
-            if not name.endswith(".md"):
-                continue
-            rel = (Path(folder) / name).relative_to(root).as_posix()
-            kind = classifier.classify(rel)
-            if kind:
-                found[rel] = kind
+    for rel in iter_files(root, rules or IgnoreRules(root)):
+        if rel.endswith(".md") and (kind := classifier.classify(rel)):
+            found[rel] = kind
     return dict(sorted(found.items()))
 
 
@@ -412,6 +397,14 @@ class SyncReport:
     updated: int
     deleted: int
     changed_ids: list[str] = field(default_factory=list)  # node IDs and file:<path> that changed
+    indexed: bool = True  # False for a batch that touched no SDD document (the pipeline's shell)
+    code: CodeReport | None = None  # M04a: the code walker's part of this sync
+    git: GitReport | None = None  # M04a: the git part, ``None`` when skipped
+
+    @classmethod
+    def empty(cls) -> SyncReport:
+        """A report for a sync that did not run the indexer."""
+        return cls(False, 0, [], [], 0, [], {}, 0, 0, 0, 0, indexed=False)
 
 
 def reset(store: Store) -> None:
@@ -438,7 +431,8 @@ def sync(
     something. ``cache`` lets unchanged files skip parsing. The caller serializes calls.
     """
     analysis = analyse(settings, cache=cache, files=files)
-    report = _apply(store.write, upsert.read_state(store), analysis, settings, full=full)
+    state = _scope(upsert.read_state(store), Classifier(settings))
+    report = _apply(store.write, state, analysis, settings, full=full)
     if full or report.changed or report.removed or report.relinked:
         store.checkpoint()  # no flush for a no-op watcher batch
     return report
@@ -457,7 +451,26 @@ def sync_tx(tx: Tx, settings: Settings, *, cache: ParseCache | None = None) -> S
     def run_here(job: Callable[[Tx], Any]) -> Any:
         return job(tx)
 
-    return _apply(run_here, upsert.read_state(tx), analysis, settings, full=False)
+    return _apply(
+        run_here,
+        _scope(upsert.read_state(tx), Classifier(settings)),
+        analysis,
+        settings,
+        full=False,
+    )
+
+
+def _scope(state: upsert.GraphState, classifier: Classifier) -> upsert.GraphState:
+    """Keep only what the Markdown sync owns: SDD documents (M04a.6).
+
+    The code walker also gives every other file a hashed File node, so ``read_state`` returns
+    those too. Without this the full sync would delete them as "removed", and the catalog
+    fingerprint would differ on every sync. The File catalog rows are those of the SDD documents
+    that carry a hash (fully synced), which is what the fingerprint was before the walker.
+    """
+    files = {p: h for p, h in state.files.items() if classifier.classify(p) is not None}
+    rows = [r for r in state.catalog_rows if r["label"] != "File" or r["path"] in files]
+    return replace(state, files=files, catalog_rows=rows)
 
 
 def _apply(

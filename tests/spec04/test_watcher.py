@@ -77,7 +77,6 @@ def test_ignored_folders_are_never_reported(project: MakeProject) -> None:
     _write(root, ".git/HEAD", "ref")
     _write(root, "node_modules/pkg/README.md", "# pkg")
     _write(root, "src/__pycache__/m.pyc", "x")
-    _write(root, "docs/specs/.hidden.md", "x")
     assert watcher.poll_once(code=True) == set()
     assert watcher.poll_once(code=False) == set()
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from typing import Any
 
 from sdd.config import Settings
@@ -9,7 +10,7 @@ from sdd.graph import schema
 from sdd.graph.store import Store
 from sdd.parse import ParseWarning
 from sdd.service import remote
-from sdd.sync import indexer
+from sdd.sync import indexer, pipeline
 
 SEVERITIES = ("error", "warning", "info")
 
@@ -47,6 +48,8 @@ def report_dict(
         "warnings_by_severity": by_severity(report.warnings),
         "unresolved": report.unresolved,
         "unresolved_total": sum(len(v) for v in report.unresolved.values()),
+        "code": asdict(report.code) if report.code is not None else None,
+        "git": report.git.as_dict() if report.git is not None else None,
         "nodes": counts.total_nodes,
         "relationships": counts.total_relationships,
     }
@@ -64,7 +67,7 @@ def sync(settings: Settings, *, reset: bool = False) -> dict[str, Any]:
         schema.ensure(store)
         if reset:
             indexer.reset(store)
-        report = indexer.full_sync(store, settings)
+        report = pipeline.run(store, settings, pipeline.SyncState.new(settings), full=True)
         counts = schema.counts(store)
     return report_dict(settings, report, counts)
 

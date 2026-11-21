@@ -25,6 +25,7 @@ from sdd.errors import SddError
 from sdd.mcp import server as mcp_server
 from sdd.service import remote
 from sdd.service.runtime import Runtime
+from sdd.sync.git import HeadPoller
 from sdd.sync.watcher import Watcher
 from sdd.web.api import create_app
 
@@ -73,7 +74,7 @@ def prepare(settings: Settings, host: str = "127.0.0.1") -> Runtime:
         )
     runtime = Runtime.open(settings)  # the writer lock: daemon_running if another process holds it
     try:
-        runtime.sync(full=True)  # startup scan; # M04a: git sync
+        runtime.sync(full=True)  # startup scan: code, Markdown, git
     except BaseException:
         runtime.close()
         raise
@@ -128,7 +129,9 @@ class _Server(uvicorn.Server):
         super().__init__(config)
         self.runtime = runtime
         self.host, self.port = host, port
-        self.watcher = Watcher(runtime.settings, runtime.on_batch)
+        assert runtime.state is not None
+        self.watcher = Watcher(runtime.settings, runtime.on_batch, rules=runtime.state.rules)
+        self.head_poller = HeadPoller(runtime.settings.project_root, runtime.on_head)
         self.cleaned = False
 
     async def startup(self, sockets: list[socket.socket] | None = None) -> None:
@@ -141,11 +144,12 @@ class _Server(uvicorn.Server):
         self.cleanup()
 
     def cleanup(self) -> None:
-        """Stop the watcher, drain and close the store, remove our ``daemon.json`` (once)."""
+        """Stop the watcher and HEAD poller, close the store, remove our ``daemon.json`` (once)."""
         if self.cleaned:
             return
         self.cleaned = True
         self.watcher.stop()
+        self.head_poller.stop()
         self.runtime.close()
         remove_daemon_file(self.runtime.settings, self.runtime.instance)
 
@@ -164,6 +168,7 @@ def run(settings: Settings, *, host: str = "127.0.0.1", port: int = 8770) -> Non
     server = _Server(config, runtime, host, port)
     try:
         server.watcher.start()
+        server.head_poller.start()
         server.run()
     except KeyboardInterrupt:
         pass  # Uvicorn re-raises SIGINT after a graceful stop

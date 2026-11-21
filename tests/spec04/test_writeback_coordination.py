@@ -38,23 +38,24 @@ def test_spec04_ac07_concurrent_deviations_get_consecutive_numbers(runtime: Runt
     with ThreadPoolExecutor(2) as pool:
         results = list(pool.map(log, range(2)))
     ids = sorted(r["id"] for r in results)
-    assert ids == ["D002", "D003"]
+    assert ids == ["D003", "D004"]
     root = runtime.settings.project_root
     files = sorted(p.name for p in (root / "docs/deviations").iterdir())
-    assert len(files) == 3
-    assert files[1].startswith("D002-parallel-change-")
+    assert len(files) == 4
     assert files[2].startswith("D003-parallel-change-")
+    assert files[3].startswith("D004-parallel-change-")
     index = read(runtime, INDEX).splitlines()
     # newest first: the later job's row went on top of the earlier one's
-    assert index[4].startswith("| [D003]")
-    assert index[5].startswith("| [D002]")
-    assert index[6].startswith("| [D001]")
+    assert index[4].startswith("| [D004]")
+    assert index[5].startswith("| [D003]")
+    assert index[6].startswith("| [D002]")
+    assert index[7].startswith("| [D001]")
     spec = read(runtime, SPEC)
-    assert spec.count("> **DEVIATION:** see [D002]") == 1
     assert spec.count("> **DEVIATION:** see [D003]") == 1
+    assert spec.count("> **DEVIATION:** see [D004]") == 1
     # both notes sit in §2's own body, each after a blank line
     teas = spec.split("## 2. Teas", 1)[1].split("## 3.", 1)[0]
-    assert "\n\n> **DEVIATION:** see [D002]" in teas or "\n\n> **DEVIATION:** see [D003]" in teas
+    assert "\n\n> **DEVIATION:** see [D003]" in teas or "\n\n> **DEVIATION:** see [D004]" in teas
     report = indexer.sync(runtime.store, runtime.settings, full=False)
     assert report.changed == []  # the jobs re-synced their own edits (loop prevention)
     assert [w for w in report.warnings if w.code == "deviation_index_mismatch"] == []
@@ -127,7 +128,7 @@ def test_spec04_ac12_complete_milestone_moves_and_rewrites_links(runtime: Runtim
     report = runtime.sync(full=True)
     assert report["changed"] == []  # the job re-synced the moved and rewritten files
     # D001's Affects entries wait for code File and Table nodes (M04a/M04b)
-    assert set(report["unresolved"]) <= {"D001"}
+    assert set(report["unresolved"]) <= {"D001", "D002"}
     assert [w for w in report["warnings"] if w["code"] == "link_moved"] == []
 
 
