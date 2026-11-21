@@ -6,7 +6,7 @@ SDD Graph turns a spec-driven repo into one live **[Relate](HANDOFF.md)** graph.
 
 **Markdown stays the source of truth.** The graph can be rebuilt from Markdown, code and git at any time. The only exceptions are claims, agents and events.
 
-> **Status (2026-11-21):** design phase. Specs v1 and milestones are written, and no code exists yet. Everything below describes the planned v1. The milestone that builds each part is listed next to it. Next up: [M00a: Docker dev environment and package skeleton](docs/milestones/M00a-docker-and-skeleton.md).
+> **Status (2026-11-21):** building. Specs v1 and milestones are written; the Docker dev environment and package skeleton are done ([M00a](docs/milestones/done/M00a-docker-and-skeleton.md)). Everything below describes the planned v1. The milestone that builds each part is listed next to it. Next up: [M00b: Relate access layer](docs/milestones/M00b-relate-access-layer.md).
 
 ## Why
 

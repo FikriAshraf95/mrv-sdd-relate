@@ -1,7 +1,9 @@
-# live graph store (never commit; see DEC-001)
+# live graph store of this repo (root only; never commit, see DEC-001).
+# The sample's built store under samples/ IS committed.
 /.sdd/graph/
 /.sdd/daemon.json
 /.sdd/*.lock
+**/.sdd/graph/.cypherlite.*
 
 # secrets
 .env
@@ -14,6 +16,10 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
+.import_linter_cache/
+
+# benchmark scratch
+bench/results/*.tmp
 
 # playwright MCP output
 /playwright/

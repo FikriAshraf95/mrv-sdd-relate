@@ -1,0 +1,191 @@
+[project]
+name = "relate-sdd"
+version = "0.1.0"
+description = "SDD Graph: specs, milestones, deviations, code and git of a spec-driven repo in one Relate graph, served to agents over MCP"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = "==3.13.*"
+dependencies = [
+    "relate-db>=1.2",
+    "mcp>=2.3,<3",
+    "starlette",
+    "uvicorn",
+    "sse-starlette",
+    "markdown-it-py",
+    "watchdog",
+    "pathspec",
+    "typer",
+    "pydantic>=2,<3",
+]
+
+[project.scripts]
+sdd = "sdd.cli:app"
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-socket",
+    "ruff",
+    "mypy",
+    "import-linter",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sdd"]
+
+# ---------------------------------------------------------------- pytest (SPEC-10 §1–2)
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# pytest-socket blocks the network; AF_UNIX stays allowed for in-process event loops.
+addopts = "--disable-socket --allow-unix-socket --strict-markers"
+
+# ---------------------------------------------------------------- ruff
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+extend-exclude = ["tests/fixtures", "*.md"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "RUF", "PL", "PT"]
+# PLR0911/PLR0912: ID and config dispatchers are flat on purpose. RUF001-003: specs use en dashes.
+ignore = ["PLR0911", "PLR0912", "PLR0913", "PLR2004", "RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["PLR0915"]
+
+# ---------------------------------------------------------------- mypy
+[tool.mypy]
+strict = true
+python_version = "3.13"
+mypy_path = "src"
+packages = ["sdd"]
+
+# ---------------------------------------------------------------- import-linter (SPEC-01 §3)
+# Contracts check direct imports only (allow_indirect_imports): `cli -> service -> graph` is fine,
+# `cli -> graph` is not. External packages are included so "stdlib only" and "relate only in
+# graph/store.py" can be enforced.
+[tool.importlinter]
+root_packages = ["sdd"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "relate is imported only in sdd.graph.store"
+type = "forbidden"
+source_modules = ["sdd"]
+forbidden_modules = ["relate"]
+ignore_imports = ["sdd.graph.store -> relate"]
+unmatched_ignore_imports_alerting = "none"
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "ids and errors: stdlib only"
+type = "forbidden"
+source_modules = ["sdd.ids", "sdd.errors"]
+forbidden_modules = [
+    "sdd.config", "sdd.parse", "sdd.graph", "sdd.sync", "sdd.service", "sdd.mcp", "sdd.web",
+    "sdd.demo", "sdd.daemon", "sdd.public", "sdd.cli",
+    "relate", "mcp", "starlette", "uvicorn", "sse_starlette", "markdown_it", "watchdog",
+    "pathspec", "typer", "pydantic",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "ids and errors are independent"
+type = "independence"
+modules = ["sdd.ids", "sdd.errors"]
+
+[[tool.importlinter.contracts]]
+name = "config: stdlib and errors only"
+type = "forbidden"
+source_modules = ["sdd.config"]
+forbidden_modules = [
+    "sdd.ids", "sdd.parse", "sdd.graph", "sdd.sync", "sdd.service", "sdd.mcp", "sdd.web",
+    "sdd.demo", "sdd.daemon", "sdd.public", "sdd.cli",
+    "relate", "mcp", "starlette", "uvicorn", "sse_starlette", "markdown_it", "watchdog",
+    "pathspec", "typer", "pydantic",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "parse: pure (stdlib, markdown-it-py, ids, errors)"
+type = "forbidden"
+source_modules = ["sdd.parse"]
+forbidden_modules = [
+    "sdd.config", "sdd.graph", "sdd.sync", "sdd.service", "sdd.mcp", "sdd.web", "sdd.demo",
+    "sdd.daemon", "sdd.public", "sdd.cli",
+    "relate", "mcp", "starlette", "uvicorn", "sse_starlette", "watchdog", "pathspec", "typer",
+    "pydantic",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "graph: relate, ids, errors, config"
+type = "forbidden"
+source_modules = ["sdd.graph"]
+forbidden_modules = [
+    "sdd.parse", "sdd.sync", "sdd.service", "sdd.mcp", "sdd.web", "sdd.demo", "sdd.daemon",
+    "sdd.public", "sdd.cli",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "sync: parse, graph, ids, errors, config"
+type = "forbidden"
+source_modules = ["sdd.sync"]
+forbidden_modules = [
+    "sdd.service", "sdd.mcp", "sdd.web", "sdd.demo", "sdd.daemon", "sdd.public", "sdd.cli",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "service: never mcp, web, cli"
+type = "forbidden"
+source_modules = ["sdd.service"]
+forbidden_modules = [
+    "sdd.mcp", "sdd.web", "sdd.demo", "sdd.daemon", "sdd.public", "sdd.cli",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "mcp and web: service, ids, errors, config"
+type = "forbidden"
+source_modules = ["sdd.mcp", "sdd.web"]
+forbidden_modules = [
+    "sdd.graph", "sdd.sync", "sdd.parse", "sdd.demo", "sdd.daemon", "sdd.public", "sdd.cli",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "mcp and web are independent"
+type = "independence"
+modules = ["sdd.mcp", "sdd.web"]
+
+[[tool.importlinter.contracts]]
+name = "demo: service, sync, ids, errors, config"
+type = "forbidden"
+source_modules = ["sdd.demo"]
+forbidden_modules = [
+    "sdd.graph", "sdd.parse", "sdd.mcp", "sdd.web", "sdd.daemon", "sdd.public", "sdd.cli",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "daemon and public are imported only by cli"
+type = "forbidden"
+source_modules = [
+    "sdd.ids", "sdd.errors", "sdd.config", "sdd.parse", "sdd.graph", "sdd.sync", "sdd.service",
+    "sdd.mcp", "sdd.web", "sdd.demo",
+]
+forbidden_modules = ["sdd.daemon", "sdd.public"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "cli: service, daemon, public, demo, ids, errors, config"
+type = "forbidden"
+source_modules = ["sdd.cli"]
+forbidden_modules = ["sdd.graph", "sdd.sync", "sdd.parse", "sdd.mcp", "sdd.web"]
+allow_indirect_imports = true

@@ -1,0 +1,50 @@
+# Gates (SPEC-10 §6), run inside the dev image like local development (SPEC-11 §1).
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build dev image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: dev
+          tags: relate-sdd-dev:ci
+          load: true
+          cache-from: type=gha,scope=dev
+          cache-to: type=gha,scope=dev,mode=max
+
+      - name: Gates
+        run: |
+          docker run --rm -v "$PWD:/workspace" -w /workspace relate-sdd-dev:ci sh -euc '
+            uv sync --frozen
+            uv run ruff check .
+            uv run ruff format --check .
+            uv run mypy src/sdd
+            uv run lint-imports
+            uv run pytest -q
+          '
+
+      - name: Runtime image smoke test
+        run: |
+          docker build --target runtime -t relate-sdd:ci .
+          docker run --rm relate-sdd:ci --version
+          test "$(docker run --rm --entrypoint id relate-sdd:ci -u)" = "10001"

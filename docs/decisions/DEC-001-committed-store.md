@@ -1,7 +1,7 @@
 # DEC-001 — Commit the live store, or only snapshots
 
 - **Date raised:** 2026-11-21 (spec audit) · **Needed by:** M00.1 (the `.gitignore`) · **Status:** Accepted (option A, with the sample's store treated as a snapshot, i.e. C in practice; 2026-11-21)
-- **Specs affected:** [SPEC-08 §3](../specs/SPEC-08-cli-and-exports.md#3-exports-and-snapshots), [SPEC-11 §5, §8](../specs/SPEC-11-deployment-and-demo.md#5-sample-project), [SPEC-00 §7](../specs/SPEC-00-overview.md#7-success-criteria) item 6, [M00a](../milestones/M00a-docker-and-skeleton.md) M00a.1, [M06a](../milestones/M06a-sample-and-exports.md) M06a.4
+- **Specs affected:** [SPEC-08 §3](../specs/SPEC-08-cli-and-exports.md#3-exports-and-snapshots), [SPEC-11 §5, §8](../specs/SPEC-11-deployment-and-demo.md#5-sample-project), [SPEC-00 §7](../specs/SPEC-00-overview.md#7-success-criteria) item 6, [M00a](../milestones/done/M00a-docker-and-skeleton.md) M00a.1, [M06a](../milestones/M06a-sample-and-exports.md) M06a.4
 
 ## Context
 

@@ -24,7 +24,7 @@ This spec is the **single source of truth for graph shapes**. Other specs link h
 | Event | `event:<ulid>` | |
 | Meta | `meta` (one node) | |
 
-`ids.normalise()` accepts the forms people type: `SPEC-03 §5.2`, `SPEC-03§5.2`, `spec-03#5.2`, `SPEC-3 5.2`, `m2.3`. Rules: prefixes are upper-cased (`SPEC`, `M`, `D`) and milestone letter suffixes lower-cased; spec and milestone numbers are zero-padded to at least 2 digits (`SPEC-3` → `SPEC-03`, `m2.3` → `M02.3`, `M100` stays), deviation numbers to 3 (`d12` → `D012`); `§`, `#`, a space or nothing may separate a spec from its section number. IDs taken from file names are padded the same way, so a file `M2-x.md` is `M02`.
+`ids.normalise()` accepts the forms people type: `SPEC-03 §5.2`, `SPEC-03§5.2`, `spec-03#5.2`, `SPEC-3 5.2`, `m2.3`. Rules: prefixes are upper-cased (`SPEC`, `M`, `D`) and milestone letter suffixes lower-cased; spec and milestone numbers are zero-padded to at least 2 digits (`SPEC-3` → `SPEC-03`, `m2.3` → `M02.3`, `M100` stays), deviation numbers to 3 (`d12` → `D012`); `§`, `#` or a space separates a spec from its section number, with or without spaces around `§` and `#` (`SPEC-03§5.2`, `SPEC-03 § 5.2`); a number glued straight to the spec number (`SPEC-035.2`) is rejected as ambiguous. A section slug or acceptance check takes the same separators (`SPEC-02 §attachments`, `SPEC-03 ac6`). IDs taken from file names are padded the same way, so a file `M2-x.md` is `M02`.
 
 **Common properties** on every parsed node: `id` (unique), `source_path`, `source_line` (1-based, where applicable), `content_hash` (sha256 of the parsed text), `last_synced` (UTC ISO). Code-layer nodes have `last_synced` but no `source_line`.
 

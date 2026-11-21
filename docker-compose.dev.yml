@@ -1,0 +1,31 @@
+# Development container (SPEC-11 §1–2). Everything builds, tests and runs in here.
+#   docker compose -f docker-compose.dev.yml up -d dev
+#   docker compose -f docker-compose.dev.yml exec dev uv sync
+name: relate-sdd-dev
+
+services:
+  dev:
+    build:
+      context: .
+      target: dev
+    image: relate-sdd-dev
+    command: sleep infinity
+    working_dir: /workspace
+    environment:
+      SDD_WATCH: poll
+      SDD_ALLOW_REMOTE: "1"
+    ports:
+      - "127.0.0.1:8770:8770"
+    volumes:
+      - .:/workspace
+      - venv:/opt/venv
+      - uvcache:/cache/uv
+      # Reference projects: read-only, docs and CLAUDE.md only. Never modified, never published.
+      - ${SDD_REF_RAG:-D:/Works/ai/office-rag}/docs:/refs/office-rag/docs:ro
+      - ${SDD_REF_RAG:-D:/Works/ai/office-rag}/CLAUDE.md:/refs/office-rag/CLAUDE.md:ro
+      - ${SDD_REF_SUITE:-D:/Works/ai/office-suite-v2}/docs:/refs/office-suite/docs:ro
+      - ${SDD_REF_SUITE:-D:/Works/ai/office-suite-v2}/CLAUDE.md:/refs/office-suite/CLAUDE.md:ro
+
+volumes:
+  venv:
+  uvcache:

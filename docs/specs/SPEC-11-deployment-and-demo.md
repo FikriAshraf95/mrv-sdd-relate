@@ -6,7 +6,7 @@
 
 All building, testing and running happens in Docker. The Windows host's C: drive is nearly full; Docker's data lives on D:, so images, volumes and caches stay off C:.
 
-- `Dockerfile`, stage **`dev`**: `python:3.13-slim` (glibc; `relate-db` has no musllinux wheel) + `git`, `curl`, `ca-certificates`, `uv` (copied from `ghcr.io/astral-sh/uv`), the Relate CLI (install script, amd64 + arm64; open item O9), and `git config --global --add safe.directory '*'`.
+- `Dockerfile`, stage **`dev`**: `python:3.13-slim` (glibc; `relate-db` has no musllinux wheel) + `git`, `curl`, `ca-certificates`, `openssh-client`, `uv` (copied from `ghcr.io/astral-sh/uv`), the Relate CLI (official install script into `HOME=/opt/relate`, linked onto `PATH`; amd64 + arm64; how and why: O9 in [SPEC-00 §8](SPEC-00-overview.md#8-schedule-and-open-items)), `DO_NOT_TRACK=1` (turns off the CLI's default-on telemetry), and `git config --system --add safe.directory '*'` (system level, so it also applies to other users).
 - `UV_PROJECT_ENVIRONMENT=/opt/venv`, so the virtualenv lives in a **named volume**, not on the bind mount (fast, and no Windows/Linux venv clash). `UV_CACHE_DIR=/cache/uv` in another named volume. `UV_LINK_MODE=copy`.
 - `SDD_WATCH=poll` (inotify misses host edits through the bind mount).
 - Usage:
