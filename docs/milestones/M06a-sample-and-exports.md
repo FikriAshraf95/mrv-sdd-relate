@@ -1,6 +1,6 @@
 # M06a — Invented sample project and exports
 
-> **Depends on:** [M04b](M04b-schema-features-impact.md), [M05b](M05b-dashboard-impact-explain.md) · **Blocks:** [M06b](M06b-public-replay-deploy.md)
+> **Depends on:** [M04b](done/M04b-schema-features-impact.md), [M05b](M05b-dashboard-impact-explain.md) · **Blocks:** [M06b](M06b-public-replay-deploy.md)
 > **Read first:** [SPEC-11 §5, §8](../specs/SPEC-11-deployment-and-demo.md#5-sample-project) · [SPEC-08 §3](../specs/SPEC-08-cli-and-exports.md#3-exports-and-snapshots) · [SPEC-06 §5](../specs/SPEC-06-code-context.md#5-presets) · [SPEC-10 §3](../specs/SPEC-10-testing-and-benchmark.md#3-fixtures) · [DEC-004](../decisions/DEC-004-sample-fallback.md)
 > **Model:** Opusplan. The sample's story decides how good the demo looks; snapshots depend on open item O3. Write `M06a-plan.md` first.
 > **Split from:** M06 (2026-11-21)
