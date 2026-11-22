@@ -11,7 +11,7 @@
 ## 2. Local daemon
 
 1. Binds `127.0.0.1` by default. Binding anything else requires `SDD_ALLOW_REMOTE=1` **and** `SDD_TOKEN`, or the daemon refuses to start. **Exception inside a container** (`/.dockerenv` exists): `SDD_ALLOW_REMOTE=1` alone is enough, because the container must bind `0.0.0.0` and our Compose files publish the port on `127.0.0.1` only ([SPEC-11 §2](SPEC-11-deployment-and-demo.md#2-compose)).
-2. `SDD_TOKEN` (optional locally): when set, every `/mcp` and `/api` request needs `Authorization: Bearer <token>`, or gets 401 `unauthorized`. `daemon.json` stores only its SHA-256.
+2. `SDD_TOKEN` (optional locally): when set, every `/mcp` and `/api` request needs `Authorization: Bearer <token>`, or gets 401 `unauthorized`. `daemon.json` stores only its SHA-256. **The dashboard under a token:** its static files hold no data and need no token. On the first 401 the dashboard asks for the token once, keeps it in `sessionStorage` (this tab only, gone when it closes) and sends it as the header on every `/api` call. `EventSource` cannot send headers, so with a token set the Board uses its polling fallback ([SPEC-07 §3](SPEC-07-dashboard-and-api.md#3-live-events)). The token never goes in a URL or a cookie.
 3. **Host check (DNS rebinding):** every request's `Host` header must name a loopback host (`localhost`, `127.0.0.1`, `[::1]`, any port) or a host listed in `SDD_ALLOWED_HOSTS`; otherwise 403 `forbidden_host`. Without it, a web page whose domain re-resolves to 127.0.0.1 could read the whole API, because reads have no Origin check.
 4. **Write endpoints and `/mcp` reject requests whose `Origin` header is not the daemon's own origin** (stops a web page from posting to localhost) with 403 `forbidden_origin`. "Own origin" is `http://<the request's Host header>`, which the Host check has already limited to loopback, so it works behind a Compose port mapping. Requests without `Origin` (Claude Code, the CLI) are allowed.
 5. Write-back only edits files inside the project root, resolved with `Path.resolve()`. A path outside it is `invalid_input`.
@@ -46,7 +46,7 @@ Used by the `query` tool, `POST /api/query` and `sdd query`.
 ## 6. Acceptance checks
 
 1. Outside a container, the daemon refuses to start with `--host 0.0.0.0` unless `SDD_ALLOW_REMOTE=1` and `SDD_TOKEN` are set; inside one, `SDD_ALLOW_REMOTE=1` is enough.
-2. With `SDD_TOKEN` set, `/api/status` without the header returns 401; with it, 200.
+2. With `SDD_TOKEN` set, `/api/status` without the header returns 401; with it, 200. `/` and the dashboard's static files still return 200, and the dashboard, given the token once, loads the Board (by polling).
 3. `POST /api/tasks/M01.1/claim` with `Origin: https://evil.example` returns 403.
 4. The guard rejects `MATCH (n) DETACH DELETE n`, `CREATE (:X)`, `MATCH (n) SET n.x = 1`, `CALL db.labels()`, and two statements separated by `;`; it accepts `MATCH (n:Task) RETURN n.id LIMIT 5`.
 5. A write that bypasses the tokenizer (simulated in a test by disabling step 1) leaves the store unchanged.
