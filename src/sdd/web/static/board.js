@@ -22,11 +22,13 @@ export function mount(el, arg) {
   const picker = h("select", { "aria-label": "Milestone" });
   const counts = h("div", { class: "counts" });
   const liveEl = h("span", { class: "live small muted" });
+  // Replay exists only in the static demo (api.replay): the recorded sprint plays on this board.
+  const replayBtn = api.replay ? h("button", { type: "button", class: "primary" }, "Replay") : null;
   const cols = h("div", { class: "cols" });
   const ticker = h("ul", { class: "ticker", "aria-label": "Recent events" });
   const err = h("div", { class: "err" });
   el.append(
-    h("div", { class: "bar" }, h("h2", {}, "Board"), picker, counts, h("span", { class: "grow" }), liveEl),
+    h("div", { class: "bar" }, h("h2", {}, "Board"), picker, counts, h("span", { class: "grow" }), replayBtn, liveEl),
     err,
     cols,
     ticker,
@@ -120,15 +122,17 @@ export function mount(el, arg) {
     started = true;
     live = on;
     liveEl.className = `live small muted${on ? " on" : ""}`;
-    liveEl.textContent = on ? "live" : "polling";
+    liveEl.textContent = on ? "live" : api.isStatic ? "static" : "polling";
     clearInterval(timer);
-    timer = on ? null : setInterval(refresh, POLL_MS);
+    // the static demo has nothing new to read: no poll
+    timer = on || api.isStatic ? null : setInterval(refresh, POLL_MS);
   }
 
   const stop = api.events(
     (type, d) => {
       note(type, d);
       if (type !== "deviation") refresh();
+      if (api.isStatic && type !== "deviation") loadPicker(); // the replay changes the counts
     },
     (on) => {
       if (closed) return;
@@ -139,19 +143,56 @@ export function mount(el, arg) {
   );
   setLive(false);
 
-  api
-    .milestones()
-    .then((list) => {
-      picker.replaceChildren(
-        ...list.map((m) => new Option(`${m.id} · ${m.title} (${m.done}/${m.total})`, m.id)),
-      );
-      if (milestone) picker.value = milestone;
-    })
-    .catch(() => {})
-    .finally(refresh);
+  const loadPicker = () =>
+    api
+      .milestones()
+      .then((list) => {
+        picker.replaceChildren(
+          ...list.map((m) => new Option(`${m.id} · ${m.title} (${m.done}/${m.total})`, m.id)),
+        );
+        if (milestone) picker.value = milestone;
+      })
+      .catch(() => {});
+  loadPicker().finally(refresh);
+
+  // Replay button states: "Replay" -> "Stop" while it plays -> "Back to the sample" when it ended.
+  let stopEnd = () => {};
+  if (replayBtn) {
+    let state = "idle";
+    const show = (next) => {
+      state = next;
+      replayBtn.textContent = { idle: "Replay", playing: "Stop", ended: "Back to the sample" }[next];
+    };
+    stopEnd = api.replay.onEnd(() => {
+      if (state === "playing" && !closed) show("ended");
+    });
+    replayBtn.addEventListener("click", async () => {
+      if (state !== "idle") {
+        await api.replay.stop();
+        show("idle");
+        previous = new Map();
+        loadPicker();
+        refresh();
+        return;
+      }
+      const { milestone: shown } = await api.replay.start(milestone);
+      if (shown !== milestone) {
+        milestone = shown;
+        picker.value = shown;
+        history.replaceState(null, "", `#board/${encodeURIComponent(shown)}`); // no hashchange: keep playing
+      }
+      previous = new Map();
+      events.length = 0;
+      ticker.replaceChildren();
+      show("playing");
+      refresh();
+    });
+  }
 
   return () => {
     closed = true;
+    if (replayBtn) api.replay.stop();
+    stopEnd();
     stop();
     clearInterval(timer);
   };

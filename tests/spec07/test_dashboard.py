@@ -91,9 +91,14 @@ def test_spec07_ac06_no_request_outside_the_own_origin() -> None:
     api = _own_text()["api.js"]
     targets = re.findall(r"(?:request|fetch|EventSource)\(\s*[`\"']([^`\"']+)", api)
     assert len(targets) >= 8
-    assert all(t.startswith("/api/") for t in targets), targets
+    assert all(t.startswith("/api/") or t == "examples.json" for t in targets), targets
+    # the static demo's backend (M08) and its WASM worker read their own files by relative URL
+    adapters = {"api.js", "static.js", "relate-worker.js"}
+    for name in ("static.js", "relate-worker.js"):
+        for ref in re.findall(r"fetch\(\s*(?:new URL\(\s*)?[`\"']([^`\"']+)", _own_text()[name]):
+            assert not re.match(r"^(?:[a-z]+:)?//|^/", ref), (name, ref)
     for name, text in _own_text().items():
-        if name.endswith(".js") and name != "api.js":
+        if name.endswith(".js") and name not in adapters:
             assert not re.search(
                 r"\b(?:fetch|XMLHttpRequest|EventSource|WebSocket|sendBeacon)\b", text
             ), name

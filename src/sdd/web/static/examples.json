@@ -1,0 +1,8 @@
+[
+  ["Open tasks", "MATCH (t:Task) WHERE t.status <> 'done' RETURN t.id AS id, t.title AS title, t.status AS status ORDER BY id LIMIT 50"],
+  ["Milestones", "MATCH (m:Milestone) RETURN m.id AS id, m.title AS title, m.status AS status ORDER BY m.order"],
+  ["Deviations", "MATCH (d:Deviation) RETURN d.id AS id, d.title AS title, d.status AS status ORDER BY id"],
+  ["Tasks with their milestone", "MATCH (m:Milestone)-[r:INCLUDES]->(t:Task) RETURN m, r, t LIMIT 40"],
+  ["Spec sections", "MATCH (s:Spec)-[r]->(c:Section) RETURN s, r, c LIMIT 60"],
+  ["Label counts", "MATCH (n) RETURN labels(n)[0] AS label, count(*) AS n ORDER BY n DESC"]
+]

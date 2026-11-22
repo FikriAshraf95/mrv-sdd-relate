@@ -31,3 +31,6 @@ bench/results/*.tmp
 
 # polling benchmark scratch (scripts/measure_poll.py deletes it)
 /_pollbench/
+
+# static demo build (sdd site)
+/site/

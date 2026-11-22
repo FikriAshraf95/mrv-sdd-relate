@@ -4,26 +4,29 @@ import { cyStyle, elementsOf } from "./cystyle.js";
 import { h } from "./dom.js";
 import { picker } from "./presets.js";
 
-const EXAMPLES = [
-  ["Open tasks", "MATCH (t:Task) WHERE t.status <> 'done' RETURN t.id AS id, t.title AS title, t.status AS status ORDER BY id LIMIT 50"],
-  ["Milestones", "MATCH (m:Milestone) RETURN m.id AS id, m.title AS title, m.status AS status ORDER BY m.order"],
-  ["Deviations", "MATCH (d:Deviation) RETURN d.id AS id, d.title AS title, d.status AS status ORDER BY id"],
-  ["Tasks with their milestone", "MATCH (m:Milestone)-[r:INCLUDES]->(t:Task) RETURN m, r, t LIMIT 40"],
-  ["Spec sections", "MATCH (s:Spec)-[r]->(c:Section) RETURN s, r, c LIMIT 60"],
-  ["Label counts", "MATCH (n) RETURN labels(n)[0] AS label, count(*) AS n ORDER BY n DESC"],
-];
+// The example queries live in examples.json, which `sdd site` also reads (one copy of the strings).
+let examples = null;
+const loadExamples = () =>
+  (examples ||= api.examples().catch(() => []));
+
 
 const isNode = (v) => v && typeof v === "object" && !Array.isArray(v) && typeof v.id === "string";
 
 export function mount(el) {
   let cy = null;
   const box = h("textarea", { class: "cypher", "aria-label": "Cypher", spellcheck: "false" });
-  box.value = EXAMPLES[0][1];
-  const pick = h("select", { "aria-label": "Example queries" }, new Option("Examples", ""), ...EXAMPLES.map(([t], i) => new Option(t, String(i))));
+  let EXAMPLES = [];
+  const pick = h("select", { "aria-label": "Example queries" }, new Option("Examples", ""));
+  loadExamples().then((list) => {
+    EXAMPLES = list;
+    if (!box.value && list.length) box.value = list[0][1];
+    pick.append(...list.map(([t], i) => new Option(t, String(i))));
+  });
   const run = h("button", { type: "button", class: "primary" }, "Run");
   const graphBtn = h("button", { type: "button", hidden: true }, "Show as graph");
   const status = h("span", { class: "muted small" });
   const err = h("div", { class: "err" });
+  const note = h("div", { class: "muted small" });
   const out = h("div");
   const canvas = h("div", { id: "cy", hidden: true });
   const bar = h("div", { class: "bar mt" }, run, graphBtn, status);
@@ -31,6 +34,7 @@ export function mount(el) {
     h("div", { class: "bar" }, h("h2", {}, "Query"), pick, h("span", { class: "grow" })),
     box,
     bar,
+    note,
     err,
     out,
     canvas,
@@ -76,8 +80,13 @@ export function mount(el) {
 
   bar.append(picker(runPreset).el); // the presets also work as examples when Cypher is allowed
   api
-    .health()
+    .health({ settled: true })
     .then((hl) => {
+      if (hl.mode === "static" && hl.public_query === "presets") {
+        // precomputed backend: the examples and the presets run, other Cypher is refused
+        note.textContent = "Static demo without WebAssembly: the example queries and the presets run; other Cypher does not.";
+        return;
+      }
       if (hl.mode !== "public" || hl.public_query !== "presets") return;
       box.readOnly = true;
       box.value = "Only the named presets run on this server. Pick one below.";

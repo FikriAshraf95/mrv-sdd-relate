@@ -1,0 +1,79 @@
+# Static demo on GitHub Pages (SPEC-11 §6, M08.2). The site is built inside the dev image like CI
+# (SPEC-11 §1): `sdd site` copies the dashboard and writes the sample's precomputed answers; the
+# Relate WASM package is fetched here, checked against a pinned hash and passed in with --wasm-dir
+# (`sdd site` never downloads). If the package were missing the site would still build and run on
+# precomputed answers.
+name: pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  # @relate/relate-wasm, Apache-2.0, from the npm registry. Pinned in this one place.
+  RELATE_WASM_VERSION: "1.2.0"
+  RELATE_WASM_SHA512: "RmJq36laQNR2mgI13x9ZYi9rfPEPallFUYG2lTLi7ERfeMULYf3tpo/aA4cPBEs68s9STX9EtMJvx1NpyPb2nQ=="
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build dev image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: dev
+          tags: relate-sdd-dev:ci
+          load: true
+          cache-from: type=gha,scope=dev
+          cache-to: type=gha,scope=dev,mode=max
+
+      - name: Fetch and verify the Relate WASM package
+        run: |
+          set -eu
+          curl -fsSL -o /tmp/relate-wasm.tgz \
+            "https://registry.npmjs.org/@relate/relate-wasm/-/relate-wasm-${RELATE_WASM_VERSION}.tgz"
+          got="$(openssl dgst -sha512 -binary /tmp/relate-wasm.tgz | base64 -w0)"
+          test "$got" = "$RELATE_WASM_SHA512"
+          mkdir /tmp/relate-wasm
+          tar -xzf /tmp/relate-wasm.tgz -C /tmp/relate-wasm
+          ls /tmp/relate-wasm/package
+
+      - name: Build the site
+        run: |
+          docker run --rm -v "$PWD:/workspace" -v /tmp/relate-wasm:/relate-wasm:ro \
+            -w /workspace relate-sdd-dev:ci sh -euc '
+            uv sync --frozen
+            uv run sdd site --sample samples/courtside --out site --wasm-dir /relate-wasm/package
+          '
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

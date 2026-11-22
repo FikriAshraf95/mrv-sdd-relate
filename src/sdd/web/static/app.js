@@ -132,4 +132,25 @@ api
   })
   .catch(() => {});
 
+// Static demo: say which engine answers (SPEC-11 §6), in the footer. Text only, never markup.
+if (api.isStatic) {
+  const foot = document.getElementById("foot");
+  foot.textContent = "Static demo · loading Relate WASM…";
+  foot.hidden = false;
+  api
+    .engine()
+    .then((e) => {
+      if (e.backend === "wasm") {
+        foot.textContent = `Static demo · Relate WASM ${e.version} · ${e.nodes} nodes loaded in ${e.ms} ms`;
+        foot.removeAttribute("title");
+      } else {
+        foot.textContent = "Static demo · precomputed answers";
+        if (e.reason) foot.title = e.reason;
+      }
+    })
+    .catch(() => {
+      foot.textContent = "Static demo · precomputed answers";
+    });
+}
+
 render();

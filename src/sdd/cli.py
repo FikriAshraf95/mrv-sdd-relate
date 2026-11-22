@@ -1022,6 +1022,42 @@ def demo_serve(
         fail(err, use_json)
 
 
+# ---------------------------------------------------------------- static demo (M08)
+
+
+@app.command("site")
+def site(
+    ctx: typer.Context,
+    sample: Annotated[Path, typer.Option("--sample", help="The sample project folder.")] = Path(
+        "samples/courtside"
+    ),
+    out: Annotated[Path, typer.Option("--out", help="Folder to (re)write.")] = Path("site"),
+    wasm_dir: Annotated[
+        Path | None,
+        typer.Option("--wasm-dir", help="The unpacked @relate/relate-wasm package to copy in."),
+    ] = None,
+    seed: Annotated[int, typer.Option("--seed", help="Replay seed.")] = 1,
+    as_json: JsonOpt = False,
+) -> None:
+    """Build the static demo (dashboard + precomputed answers + replay) from the sample."""
+    from sdd import site as site_module  # noqa: PLC0415
+
+    g: Globals = ctx.obj if isinstance(ctx.obj, Globals) else Globals()
+    use_json = as_json or g.json
+    try:
+        result = site_module.build_site(sample, out, wasm_dir=wasm_dir, seed=seed)
+    except SddError as err:
+        fail(err, use_json)
+    if use_json:
+        emit(result)
+        return
+    wasm = "Relate WASM files included" if result["backend_files"]["wasm"] else "precomputed only"
+    typer.echo(
+        f"{result['out']}: {result['answers']} answers, {result['nodes']} nodes, "
+        f"{result['relationships']} relationships, {result['replay_events']} replay events; {wasm}"
+    )
+
+
 # ---------------------------------------------------------------- benchmark (M07)
 
 bench_app = typer.Typer(

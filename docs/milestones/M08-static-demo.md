@@ -8,12 +8,12 @@
 A zero-install demo that is always up: judges click a README link and explore the sample graph in the browser, with Relate running in WebAssembly where possible and precomputed answers otherwise.
 
 ## Tasks
-- [ ] **M08.1** Precomputed answers for the presets and demo targets, and a `static` adapter backend that serves them. This is the fallback, built first.
-- [ ] **M08.2** GitHub Actions workflow: build `site/` (dashboard + exports + precomputed answers) and publish to Pages. (after M08.1)
-- [ ] **M08.3** Resolve open item O2: find the Relate WASM package, measure loading the sample's Cypher and JSON exports; record the result in SPEC-00 §8.
-- [ ] **M08.4** WASM adapter backend running the shared `graph/queries/*.cypher`; the Query tab runs guarded Cypher in the browser. (after M08.3)
-- [ ] **M08.5** Board *Replay* button animating the recorded events.
-- [ ] **M08.6** Tests: [SPEC-11 §9](../specs/SPEC-11-deployment-and-demo.md#9-acceptance-checks) check 5 (by hand on the published site).
+- [x] **M08.1** Precomputed answers for the presets and demo targets, and a `static` adapter backend that serves them. This is the fallback, built first.
+- [x] **M08.2** GitHub Actions workflow: build `site/` (dashboard + exports + precomputed answers) and publish to Pages. (after M08.1)
+- [x] **M08.3** Resolve open item O2: find the Relate WASM package, measure loading the sample's Cypher and JSON exports; record the result in SPEC-00 §8.
+- [x] **M08.4** WASM adapter backend running the shared `graph/queries/*.cypher`; the Query tab runs guarded Cypher in the browser. (after M08.3)
+- [x] **M08.5** Board *Replay* button animating the recorded events.
+- [x] **M08.6** Tests: [SPEC-11 §9](../specs/SPEC-11-deployment-and-demo.md#9-acceptance-checks) check 5 (by hand on the published site).
 
 ## Acceptance criteria
 1. The Pages site loads on desktop and phone, and the Impact view works for the centrepiece target with no backend.

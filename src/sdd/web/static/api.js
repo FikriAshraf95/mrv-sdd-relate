@@ -1,5 +1,7 @@
-// Data adapter (SPEC-07 §1 rule 5). Views call only this module. This is the HTTP backend; the
-// static and WASM backends (M08) implement the same functions.
+// Data adapter (SPEC-07 §1 rule 5). Views call only this module. `api` is a facade over one
+// backend, chosen once by <meta name="sdd-backend">: absent is the HTTP backend below (the daemon
+// and `sdd public`); "static" is static.js (GitHub Pages: precomputed answers, plus Relate WASM
+// for the Query tab when the browser can run it).
 
 const enc = encodeURIComponent;
 let targetsCache = null;
@@ -54,7 +56,7 @@ function qs(params) {
   return q ? `?${q}` : "";
 }
 
-export const api = {
+const http = {
   health: () => request("/api/health"),
   milestones: () => request("/api/milestones"),
   board: (milestone) => request(`/api/board${qs({ milestone })}`),
@@ -73,6 +75,7 @@ export const api = {
     }
     return targetsCache;
   },
+  examples: () => request("examples.json"),
   presets: () => request("/api/presets"),
   preset: (name) => request(`/api/presets/${enc(name)}`),
   query: (cypher, params = {}) =>
@@ -103,6 +106,63 @@ export const api = {
     }
     return () => es.close();
   },
+};
+
+const meta = document.querySelector('meta[name="sdd-backend"]');
+const isStatic = Boolean(meta && meta.content === "static");
+let chosen = null;
+let current = null;
+const backend = () =>
+  (chosen ||= isStatic
+    ? import("./static.js").then((m) => m.create()).then((b) => (current = b))
+    : Promise.resolve((current = http)));
+const via =
+  (name) =>
+  (...args) =>
+    backend().then((b) => b[name](...args));
+
+export const api = {
+  health: via("health"),
+  milestones: via("milestones"),
+  board: via("board"),
+  graph: via("graph"),
+  node: via("node"),
+  impact: via("impact"),
+  explain: via("explain"),
+  targets: via("targets"),
+  examples: via("examples"),
+  presets: via("presets"),
+  preset: via("preset"),
+  query: via("query"),
+  events(onEvent, onState) {
+    let close = null;
+    let dead = false;
+    backend().then((b) => {
+      if (!dead) close = b.events(onEvent, onState);
+    });
+    return () => {
+      dead = true;
+      if (close) close();
+    };
+  },
+  // "http" | "precomputed" | "wasm"; "precomputed" until the WASM worker is up
+  backend: () => (isStatic ? (current ? current.name() : "precomputed") : "http"),
+  isStatic,
+  // static only: {backend, nodes, ms, version, reason}, resolved when the WASM attempt has ended
+  engine: () => (isStatic ? backend().then((b) => b.engine()) : Promise.resolve(null)),
+  // static only: Board Replay; null on the daemon and the public server
+  replay: isStatic
+    ? {
+        start: (m) => backend().then((b) => b.replay.start(m)),
+        stop: () => backend().then((b) => b.replay.stop()),
+        running: () => Boolean(current && current.replay.running()),
+        onEnd: (fn) => {
+          let off = () => {};
+          backend().then((b) => (off = b.replay.onEnd(fn)));
+          return () => off();
+        },
+      }
+    : null,
 };
 
 export const hashId = enc;

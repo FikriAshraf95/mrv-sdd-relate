@@ -93,6 +93,8 @@ docker compose up
 # dashboard: http://localhost:8770
 ```
 
+**Zero-install demo** (from M08): <https://fikriashraf95.github.io/mrv-sdd-relate/>. It runs Relate in WebAssembly in your browser; if your browser can't, it shows answers precomputed from the same graph (the footer says which).
+
 **Development** (from M00a):
 
 ```bash
