@@ -1,0 +1,64 @@
+# Sprint replay script for the hosted demo (SPEC-11 §4). Read by `sdd demo prepare|replay`.
+# Demo tooling: this file is not part of Courtside's history and is not in the bundle.
+[start]
+# Milestones outside done/ whose task boxes all start unticked and whose **Status:** starts empty.
+unticked = ["M05a", "M05b", "M06"]
+
+[run]
+# Milestones the simulated agents work, in this order. The loop ends when all are done.
+milestones = ["M05a", "M05b", "M06"]
+verification = "Replay: every task done by the simulated agents; checks re-run green."
+
+[[task]]
+id = "M05a.1"
+notes = "Joining is refused unless the slot is already taken; one entry per member and slot."
+files = ["src/waitlist/join.py"]
+
+[[task]]
+id = "M05a.2"
+notes = "Oldest entry for the court and start time is promoted on cancellation; the hold is 15 minutes."
+files = ["src/waitlist/promote.py", "src/booking/cancel.py"]
+
+[[task]]
+id = "M05a.3"
+notes = "The promoted member gets one message with a link to confirm the held slot."
+files = ["src/waitlist/promote.py"]
+
+[[task]]
+id = "M05b.1"
+notes = "A reminder row is written with send_at 24 hours before the start of a confirmed booking."
+files = ["src/reminders/__init__.py"]
+
+[[task]]
+id = "M05b.3"
+notes = "Cancelling a booking removes its reminder; the sender skips cancelled bookings."
+files = ["src/reminders/__init__.py", "src/booking/cancel.py"]
+
+[[task]]
+id = "M06.1"
+notes = "The daily report counts confirmed bookings per court and joins paid amounts from payments."
+files = ["src/reports/__init__.py"]
+
+[[task]]
+id = "M06.2"
+notes = "Audit rows are insert-only; a database rule rejects updates and deletes."
+files = ["src/reports/__init__.py", "src/booking/model.py"]
+
+[[deviation]]
+task = "M05a.2"
+title = "Promotion skips members who already hold a booking at that time"
+amends = ["SPEC-05 §2"]
+spec_says = "The oldest waiting entry for the court and start time is promoted."
+does = "The oldest entry whose member has no other booking overlapping the slot is promoted; earlier entries stay waiting."
+why = "Promoting a member who is already booked elsewhere at that time creates a double booking the member then has to cancel."
+consequences = "A long-waiting member can be passed over; the entry keeps its place for the next cancellation."
+affects = ["src/waitlist/promote.py"]
+
+[[deviation]]
+task = "M06.1"
+title = "The daily report lists cancelled bookings in their own column"
+amends = ["SPEC-06 §1"]
+spec_says = "The daily usage report counts confirmed bookings per court."
+does = "The report also shows how many bookings were cancelled that day, in a separate column."
+why = "Front-desk staff asked for it, and D003 keeps cancelled rows with cancelled_at, so the data is already there."
+affects = ["src/reports/__init__.py"]

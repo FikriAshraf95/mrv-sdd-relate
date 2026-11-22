@@ -15,7 +15,7 @@
 
 | # | Method + path | Public | Returns |
 |---|---|---|---|
-| 1 | `GET /api/health` | ✓ | `{ok, mode: "daemon"\|"public", synced_at, schema_version, instance, project, public_query: "guarded"\|"presets"}`. `public_query` is `SDD_PUBLIC_QUERY`; the Query view reads it to become presets-only. `instance` is a random ID per daemon start, also in `daemon.json`, so the CLI knows the answer comes from this project's daemon ([SPEC-01 §5](SPEC-01-architecture.md#5-daemon-lifecycle) step 1) |
+| 1 | `GET /api/health` | ✓ | `{ok, mode: "daemon"\|"public", synced_at, schema_version, instance, project, public_query: "guarded"\|"presets", base_url}`. `project` is `SDD_PROJECT_NAME`, else the project folder's name. `public_query` is `SDD_PUBLIC_QUERY`; the Query view reads it to become presets-only. `base_url` is `PUBLIC_BASE_URL` (`null` when unset); the dashboard footer shows it. `instance` is a random ID per daemon start, also in `daemon.json`, so the CLI knows the answer comes from this project's daemon ([SPEC-01 §5](SPEC-01-architecture.md#5-daemon-lifecycle) step 1) |
 | 2 | `GET /api/status?agent=` | ✓ | as MCP `status` |
 | 3 | `GET /api/graph?labels=&focus=&depth=1&limit=300` | ✓ | `{nodes: [{id, label, title, props}], edges: [{source, target, type}]}`; `focus` expands around one node |
 | 4 | `GET /api/nodes/{id}` | ✓ | one node with all properties and its relationships grouped by type |
@@ -39,7 +39,7 @@
 
 ## 3. Live events
 
-`GET /api/events` (SSE, keep-alive comment every 15 s). Event types: `task` (`{id, status, claimed_by, milestone_id}`), `deviation` (`{id, title}`), `graph_changed` (`{ids: [...], kinds: [...]}`), `milestone` (`{id, status}`). The daemon publishes after each committed write job. `sdd public` publishes `graph_changed` after each snapshot reopen, with the changed task statuses compared to the previous snapshot. The browser falls back to polling `/api/board` every 5 s if SSE fails.
+`GET /api/events` (SSE, keep-alive comment every 15 s). Event types: `task` (`{id, status, claimed_by, milestone_id}`), `deviation` (`{id, title}`), `graph_changed` (`{ids: [...], kinds: [...]}`), `milestone` (`{id, status}`). The daemon publishes after each committed write job. `sdd public` compares each reopened snapshot with the previous one and publishes one `task` event per changed task, one `milestone` event per changed milestone and one `graph_changed` with every changed ID (the Board's ticker reads `task`, `deviation` and `milestone`). It publishes no `deviation` events. The browser falls back to polling `/api/board` every 5 s if SSE fails.
 
 ## 4. Dashboard views
 

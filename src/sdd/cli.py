@@ -901,3 +901,121 @@ def snapshot(
     typer.echo(f"{result['total_nodes']} nodes, {result['total_relationships']} relationships")
     if not result["relate_cli"]:
         typer.echo("the relate CLI is not on PATH: graph.rl and graph-json were skipped")
+
+
+# ---------------------------------------------------------------- public and demo (M06b)
+
+
+@app.command()
+def public(
+    ctx: typer.Context,
+    store: Annotated[
+        Path,
+        typer.Option(
+            "--store", help="The writer's store directory (.../.sdd/graph); opened read-only."
+        ),
+    ],
+    project: ProjectOpt = None,
+    host: Annotated[
+        str, typer.Option("--host", help="Address to bind (beyond loopback: SDD_ALLOW_REMOTE=1).")
+    ] = "127.0.0.1",
+    port: Annotated[int, typer.Option("--port", help="Port to listen on.")] = 8780,
+    as_json: JsonOpt = False,
+) -> None:
+    """Run the read-only public server: follows the writer's store, no writes, no /mcp."""
+    from sdd import public as public_module  # noqa: PLC0415
+
+    g: Globals = ctx.obj if isinstance(ctx.obj, Globals) else Globals()
+    try:
+        public_module.run(store, project=project or g.project, host=host, port=port)
+    except SddError as err:
+        fail(err, as_json or g.json)
+
+
+demo_app = typer.Typer(
+    help="The hosted demo: prepare a sample copy, replay a sprint, or serve it.",
+    add_completion=False,
+    pretty_exceptions_enable=False,
+)
+app.add_typer(demo_app, name="demo")
+
+SampleOpt = Annotated[
+    Path, typer.Option("--sample", help="The sample project folder, e.g. samples/courtside.")
+]
+DataOpt = Annotated[Path, typer.Option("--data", help="Working folder for the copy (<data>/run).")]
+
+
+@demo_app.command("prepare")
+def demo_prepare(
+    ctx: typer.Context, sample: SampleOpt, data: DataOpt, as_json: JsonOpt = False
+) -> None:
+    """Copy the sample into <data>/run from its bundle and apply its replay.toml start state."""
+    from sdd.demo import prepare as prepare_module  # noqa: PLC0415
+
+    g: Globals = ctx.obj if isinstance(ctx.obj, Globals) else Globals()
+    use_json = as_json or g.json
+    try:
+        run, unticked = prepare_module.prepare_counted(sample, data)
+    except SddError as err:
+        fail(err, use_json)
+    if use_json:
+        emit({"run": str(run), "unticked": unticked})
+    else:
+        typer.echo(str(run))
+
+
+@demo_app.command("replay")
+def demo_replay(
+    ctx: typer.Context,
+    sample: SampleOpt,
+    data: DataOpt,
+    seed: Annotated[
+        int | None, typer.Option("--seed", help="Random seed (default SDD_REPLAY_SEED, else none).")
+    ] = None,
+    as_json: JsonOpt = False,
+) -> None:
+    """Prepare, then run the simulated agents in a loop until stopped (owns <data>/run's store)."""
+    import signal  # noqa: PLC0415
+    import threading  # noqa: PLC0415
+
+    from sdd.demo.prepare import script_for  # noqa: PLC0415
+    from sdd.demo.replay import Replay  # noqa: PLC0415
+
+    g: Globals = ctx.obj if isinstance(ctx.obj, Globals) else Globals()
+    use_json = as_json or g.json
+    replay = None
+    try:
+        sample = sample.resolve()
+        script = script_for(sample)
+        chosen = seed if seed is not None else config.load(sample, config.MEMORY_STORE).replay_seed
+        replay = Replay(lambda root: config.load(root, None), sample, data, script, chosen)
+        stop = threading.Event()
+        signal.signal(signal.SIGTERM, lambda *_: stop.set())
+        signal.signal(signal.SIGINT, lambda *_: stop.set())
+        replay.run(stop=stop)
+    except SddError as err:
+        if replay is not None:
+            replay.close()
+        fail(err, use_json)
+
+
+@demo_app.command("serve")
+def demo_serve(
+    ctx: typer.Context,
+    sample: SampleOpt,
+    data: DataOpt,
+    host: Annotated[str, typer.Option("--host", help="Address to bind.")] = "127.0.0.1",
+    port: Annotated[int, typer.Option("--port", help="Port to listen on.")] = 8770,
+    as_json: JsonOpt = False,
+) -> None:
+    """Prepare a fresh copy, then run the daemon on it (dashboard and /mcp)."""
+    from sdd import daemon as daemon_module  # noqa: PLC0415
+    from sdd.demo import prepare as prepare_module  # noqa: PLC0415
+
+    g: Globals = ctx.obj if isinstance(ctx.obj, Globals) else Globals()
+    use_json = as_json or g.json
+    try:
+        run = prepare_module.prepare(sample, data)
+        daemon_module.run(config.load(run, None), host=host, port=port)
+    except SddError as err:
+        fail(err, use_json)

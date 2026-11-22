@@ -44,8 +44,9 @@ def health(runtime: Runtime) -> dict[str, Any]:
         "synced_at": runtime.synced(),
         "schema_version": schema.SCHEMA_VERSION,
         "instance": runtime.instance,
-        "project": runtime.settings.project_root.name,
+        "project": runtime.settings.display_name,
         "public_query": runtime.settings.public_query,
+        "base_url": runtime.settings.public_base_url,
     }
 
 

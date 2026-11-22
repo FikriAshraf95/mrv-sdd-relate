@@ -124,6 +124,11 @@ api
   .health()
   .then((h) => {
     document.getElementById("sync").textContent = h.project ? `${h.project} · ${h.mode}` : h.mode;
+    if (h.base_url) {
+      const foot = document.getElementById("foot");
+      foot.textContent = h.base_url; // text, never markup
+      foot.hidden = false;
+    }
   })
   .catch(() => {});
 

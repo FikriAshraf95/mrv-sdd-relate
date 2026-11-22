@@ -17,7 +17,7 @@
 | `sdd --version` | Print the `sdd` and `relate-db` versions |
 | `sdd info` | Project root, store path, whether a daemon runs (and its port), node and relationship counts per label and type, schema version |
 | `sdd daemon [--host 127.0.0.1] [--port 8770]` | Run the daemon ([SPEC-01 §5](SPEC-01-architecture.md#5-daemon-lifecycle)) |
-| `sdd public --store PATH [--port 8780]` | Run the read-only public server ([SPEC-09 §4](SPEC-09-security.md#4-public-mode)) |
+| `sdd public --store PATH [--project DIR] [--host 127.0.0.1] [--port 8780]` | Run the read-only public server ([SPEC-09 §4](SPEC-09-security.md#4-public-mode)). The project root defaults to `PATH/../..` when `PATH` ends in `.sdd/graph`, else `--project` is required. The bind rule is the daemon's ([SPEC-09 §2](SPEC-09-security.md#2-local-daemon) rule 1). |
 | `sdd sync [--reset]` | One full sync without a daemon (code walker, Markdown, git; [SPEC-04 §2, §4, §6](SPEC-04-sync.md)); `--reset` empties the store first, in place (graph-only state is lost; asks unless `--yes`; `--json` needs `--yes`). The `--json` result adds `code` (`added`, `updated`, `removed`, `folders`, `tests_links`, `capped`) and `git` (`added`, `removed`, `head`; `null` when skipped) |
 | `sdd status` | Milestones, task counts, claims, warnings, unresolved links, unticked tasks with COMPLETES commits |
 | `sdd doctor` | Reads the Markdown only and never opens the store, so it works on a read-only checkout. Every parser warning and unresolved link, deviation index mismatches, duplicate IDs; exit 1 if any `error`. The counts include tables, columns and resolved `REFERENCES` |
@@ -30,7 +30,7 @@
 | `sdd export …` | [§3](#3-exports-and-snapshots) |
 | `sdd snapshot [--out DIR]` | Checkpoint and write the committed copies ([§3](#3-exports-and-snapshots)) |
 | `sdd bench …` | [SPEC-10 §5](SPEC-10-testing-and-benchmark.md#5-benchmark) |
-| `sdd demo prepare --sample DIR --data DIR` | Copy the sample into a fresh working copy and apply its start state ([SPEC-11 §4](SPEC-11-deployment-and-demo.md#4-sprint-replay) step 1) |
+| `sdd demo prepare --sample DIR --data DIR` | Clone `<sample>.bundle` into `<data>/run` (a fresh git repository) and apply the start state of `<sample>/replay.toml` ([SPEC-11 §4](SPEC-11-deployment-and-demo.md#4-sprint-replay) step 1). Prints the path of the copy; `--json` prints `{run, unticked: {<milestone>: <boxes unticked>}}`. |
 | `sdd demo replay --sample DIR --data DIR [--seed N]` | Prepare, then run the simulated agents in a loop ([SPEC-11 §4](SPEC-11-deployment-and-demo.md#4-sprint-replay)) |
 | `sdd demo serve --sample DIR --data DIR [--host] [--port 8770]` | Prepare, then run the daemon on the copy. One command, so the judges' image can keep `ENTRYPOINT ["sdd"]` ([SPEC-11 §2](SPEC-11-deployment-and-demo.md#2-compose)) |
 

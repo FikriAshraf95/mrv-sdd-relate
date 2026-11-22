@@ -61,8 +61,13 @@ RUN apt-get update \
 COPY --from=build /opt/venv /opt/venv
 COPY src /app/src
 COPY samples /app/samples
+# /data is the demo's working folder (SPEC-11 §2, §7). A named volume mounted there copies this
+# ownership on first use, so uid 10001 can write it while the root file system stays read-only.
+RUN mkdir -p /data && chown 10001:10001 /data
 ENV PATH=/opt/venv/bin:$PATH \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    SDD_WATCH=auto
 WORKDIR /app
 USER 10001
 ENTRYPOINT ["sdd"]

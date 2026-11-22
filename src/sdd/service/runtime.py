@@ -18,7 +18,7 @@ from typing import Any
 from sdd.config import Settings
 from sdd.errors import SddError
 from sdd.graph import schema
-from sdd.graph.store import Store
+from sdd.graph.store import QueryProcess, Store
 from sdd.ids import InvalidIdError, label_of
 from sdd.service import indexing
 from sdd.service.events import EventBus
@@ -56,10 +56,17 @@ class Runtime:
     last_report: indexer.SyncReport | None = None
     synced_at: str | None = None
     state: pipeline.SyncState | None = None  # parse cache, code cache, ignore rules, tracked
+    _queries: QueryProcess | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         if self.state is None:
             self.state = pipeline.SyncState.new(self.settings, self.cache)
+
+    def queries(self) -> QueryProcess:
+        """The guarded-query worker process (SPEC-09 §3 step 3), made on first use."""
+        if self._queries is None:
+            self._queries = QueryProcess(self.settings.query_memory_mb)
+        return self._queries
 
     @classmethod
     def open(cls, settings: Settings) -> Runtime:
@@ -71,6 +78,12 @@ class Runtime:
             store.close()
             raise
         return cls(settings=settings, store=store, started_at=settings.now_iso())
+
+    @classmethod
+    def open_public(cls, settings: Settings) -> Runtime:
+        """Open the store ``read_only`` for ``sdd public`` (SPEC-09 §4): no schema work."""
+        store = Store.open(settings.store_path, read_only=True)
+        return cls(settings=settings, store=store, mode="public", started_at=settings.now_iso())
 
     def sync(
         self,
@@ -138,5 +151,7 @@ class Runtime:
             log.error("git sync at %s failed: %s", sha[:7], exc.code)
 
     def close(self) -> None:
-        """Drain the write queue, checkpoint and close the store."""
+        """Stop the query worker; drain the write queue, checkpoint and close the store."""
+        if self._queries is not None:
+            self._queries.close()
         self.store.close()

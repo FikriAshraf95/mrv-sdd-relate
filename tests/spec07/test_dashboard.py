@@ -187,3 +187,14 @@ def test_dashboard_sends_the_token_as_a_header_only() -> None:
     assert "onUnauthorized(" in app
     assert 'type: "password"' in app
     assert "Forget token" in _own_text()["index.html"]
+
+
+def test_dashboard_needs_no_inline_style_under_the_public_csp() -> None:
+    """SPEC-09 §4 `default-src 'self'`: Cytoscape injects an inline <style> unless an element
+    with this id exists, so the stylesheet link carries it and style.css holds the rule."""
+    html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+    assert 'id="__________cytoscape_stylesheet"' in html
+    assert "<style" not in html
+    assert " style=" not in html
+    css = (STATIC_DIR / "style.css").read_text(encoding="utf-8")
+    assert ".__________cytoscape_container" in css

@@ -80,12 +80,20 @@ class Settings:
     allowed_hosts: tuple[str, ...] = ()
     trusted_proxy_net: str | None = None
     public_query: str = "guarded"
+    public_base_url: str | None = None  # shown in the dashboard footer (SPEC-11 §7.1)
+    project_name: str | None = None  # what /api/health reports as `project` (SPEC-07 row 1)
     query_timeout: float = 5.0  # SPEC-09 §3 step 3 (seconds; tests shorten it)
+    query_memory_mb: int = 1024  # SPEC-09 §3 step 3: the query worker's address-space cap (0: none)
     # SPEC-11 §4
     replay_tick: float = 4.0
     replay_max_min: float = 20.0
     replay_seed: int | None = None
     clock: Callable[[], datetime] = field(default=utc_now, repr=False, compare=False)
+
+    @property
+    def display_name(self) -> str:
+        """``SDD_PROJECT_NAME``, else the project folder's name."""
+        return self.project_name or self.project_root.name
 
     @property
     def in_memory(self) -> bool:
@@ -97,6 +105,12 @@ class Settings:
 
     def now_iso(self) -> str:
         return iso_utc(self.clock())
+
+
+def git_env() -> dict[str, str]:
+    """The environment for a ``git`` subprocess that must ignore the user's and the system's git
+    config (``sdd demo prepare``). The one place besides :func:`load` that reads ``os.environ``."""
+    return {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
 
 
 def find_project_root(start: Path) -> Path | None:
@@ -166,6 +180,9 @@ def load(
         ),
         trusted_proxy_net=environ.get("SDD_TRUSTED_PROXY_NET") or None,
         public_query=_choice(environ, "SDD_PUBLIC_QUERY", "guarded", PUBLIC_QUERY_MODES),
+        query_memory_mb=int(_number(environ, "SDD_QUERY_MEMORY_MB", 1024)),
+        public_base_url=environ.get("PUBLIC_BASE_URL", "").strip() or None,
+        project_name=environ.get("SDD_PROJECT_NAME", "").strip() or None,
         replay_tick=_number(environ, "SDD_REPLAY_TICK", 4.0),
         replay_max_min=_number(environ, "SDD_REPLAY_MAX_MIN", 20.0),
         replay_seed=(

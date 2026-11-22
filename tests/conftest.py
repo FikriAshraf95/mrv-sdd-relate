@@ -182,6 +182,43 @@ def app(runtime: Runtime) -> TestClient:
     return TestClient(create_app(runtime), base_url=f"http://localhost:{FAKE_PORT}")
 
 
+MakePublic = Callable[..., Runtime]
+
+
+@pytest.fixture
+def make_public(project: MakeProject) -> Iterator[MakePublic]:
+    """Factory: ``make_public(**env)`` -> a ``mode="public"`` Runtime on a synced fixture project.
+
+    A writable Runtime syncs the project and closes (so the store is flushed); the public one then
+    opens the same store ``read_only``. All are closed after the test.
+    """
+    opened: list[Runtime] = []
+
+    def make(name: str = "tool_style", **env: str) -> Runtime:
+        root = project(name)
+        writer = Runtime.open(daemon_settings(root, **env))
+        writer.sync(full=True)
+        writer.close()
+        public = Runtime.open_public(daemon_settings(root, **env))
+        opened.append(public)
+        return public
+
+    yield make
+    for runtime in opened:
+        runtime.close()
+
+
+@pytest.fixture
+def public_runtime(make_public: MakePublic) -> Runtime:
+    return make_public()
+
+
+@pytest.fixture
+def public_app(public_runtime: Runtime) -> TestClient:
+    """A test client for ``create_app(runtime, public=True)`` on a read-only store (SPEC-10 §2)."""
+    return TestClient(create_app(public_runtime, public=True))
+
+
 @dataclass
 class FakeDaemon:
     client: TestClient

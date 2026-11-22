@@ -18,8 +18,9 @@ Shape, decided by the M00b experiments (SPEC-00 §8, O5 and O10–O12):
   on the way out, so callers always see ``<name>`` as a map.
 * **Snapshots (O11, O12).** ``read_only=True`` opens never write a file, so they work on a
   read-only mount, but need the ``.cypherlite.lock`` markers (root and ``wal/``).
-  :meth:`Store.read_snapshot` opens a fresh read-only connection on the *calling* thread for
-  each guarded query, so those never wait behind the write queue.
+  :meth:`Store.read_snapshot` opens a fresh read-only connection on the *calling* thread, so
+  it never waits behind the write queue. Guarded queries go one step further:
+  :class:`QueryProcess` runs them in a worker process that can be killed, under a memory cap.
 * **Copies (O3).** The Python package cannot copy or convert a store; the ``relate`` CLI can
   (:func:`clone`: directory, single-file ``.rl``, readable JSON codec), beside a running writer.
   This module is the only one that runs it, so every Relate access stays behind this door.
@@ -29,6 +30,8 @@ from __future__ import annotations
 
 import contextlib
 import json
+import multiprocessing
+import multiprocessing.process
 import queue
 import shutil
 import subprocess
@@ -37,6 +40,7 @@ import time
 from collections.abc import Callable, Mapping
 from concurrent.futures import Future
 from dataclasses import dataclass, field
+from multiprocessing.connection import Connection
 from pathlib import Path
 from types import TracebackType
 from typing import Any, Literal, Self, TypeVar
@@ -94,6 +98,11 @@ def _plain(value: Any) -> Any:
     """Engine value → plain Python: nodes and relationships become their (decoded) properties."""
     if isinstance(value, relate.Node | relate.Relationship):
         return _decode_map(value.properties)
+    if isinstance(value, relate.Path):
+        return {
+            "nodes": [_plain(n) for n in value.nodes],
+            "relationships": [_plain(r) for r in value.relationships],
+        }
     if isinstance(value, Mapping):
         return _decode_map(value)
     if isinstance(value, list):
@@ -435,6 +444,155 @@ class Store:
                         raise
                     raise translated from exc
                 time.sleep(delay)
+
+
+# ---------------------------------------------------------------- guarded queries in a process
+
+QUERY_START_TIMEOUT = 30.0  # seconds a fresh query worker may take to import and answer "ready"
+
+
+def _query_child(memory_mb: int, requests: Connection, replies: Connection) -> None:
+    """The query worker's loop (SPEC-09 §3 step 3). Each request opens a fresh ``read_only``
+    connection, runs one statement in a rolled-back transaction and closes it. The address space
+    is capped at ``memory_mb`` (0: no cap), so a runaway query fails here, not in the server."""
+    if memory_mb:
+        import resource  # noqa: PLC0415 - POSIX only; the worker runs in the Linux containers
+
+        cap = memory_mb * 1024 * 1024
+        resource.setrlimit(resource.RLIMIT_AS, (cap, cap))
+    replies.send(("ready",))
+    while True:
+        try:
+            path, cypher, params, limit = requests.recv()
+        except EOFError:
+            return
+        try:
+            conn = relate.connect(path, read_only=True)
+        except relate.Error as exc:
+            err = _open_error(exc, path, read_only=True)
+            replies.send(("sdd", err.code, err.message))
+            continue
+        try:
+            conn.autocommit = False
+            cursor = _exec(conn, cypher, params)
+            columns = [str(c) for c in cursor.columns]
+            rows = [[_plain(dict(r)[c]) for c in columns] for r in cursor.fetchmany(limit)]
+            replies.send(("ok", columns, rows))
+        except Exception as exc:  # MemoryError included: report it, keep the worker
+            translated = _translate(exc, path)
+            if isinstance(translated, SddError):
+                replies.send(("sdd", translated.code, translated.message))
+            else:
+                first = str(exc).splitlines()[0][:300] if str(exc) else type(exc).__name__
+                replies.send(("engine", first))
+        finally:
+            conn.close()
+
+
+class QueryProcess:
+    """Guarded queries in a worker process that can be killed (SPEC-09 §3 step 3).
+
+    A thread cannot be stopped and cannot bound memory: one Cartesian product took a 512 MB
+    container down in under two seconds. The worker is started on first use (``spawn``, as the
+    server has threads), reused while it behaves, and killed at the time limit or when it dies;
+    the next query starts a new one. One query at a time; callers hold the query gate too.
+    """
+
+    def __init__(self, memory_mb: int) -> None:
+        self.memory_mb = memory_mb
+        self._lock = threading.Lock()
+        self._proc: multiprocessing.process.BaseProcess | None = None
+        self._requests: Connection | None = None
+        self._replies: Connection | None = None
+
+    def run(
+        self,
+        path: str,
+        cypher: str,
+        params: Mapping[str, Any] | None,
+        *,
+        limit: int,
+        timeout: float,
+    ) -> tuple[list[str], list[list[Any]]]:
+        """``(columns, rows)`` like :meth:`Store.query_snapshot`. ``query_timeout`` when the time
+        is up or the worker dies (out of memory); ``invalid_input`` for an engine error."""
+        with self._lock:
+            requests, replies = self._ensure()
+            requests.send((path, cypher, dict(params) if params else None, limit))
+            reply: tuple[Any, ...] | None = None
+            if replies.poll(timeout):
+                with contextlib.suppress(EOFError, OSError):
+                    reply = replies.recv()
+            if reply is None:
+                died = self._proc is not None and not self._proc.is_alive()
+                self._kill()
+                if died:
+                    raise SddError(
+                        "query_timeout",
+                        f"The query needed more memory than allowed ({self.memory_mb} MB). "
+                        "Add a LIMIT or narrow the pattern.",
+                        retryable=True,
+                    )
+                raise SddError(
+                    "query_timeout",
+                    f"The query ran longer than {timeout:g} s. Add a LIMIT or narrow the pattern.",
+                    retryable=True,
+                )
+        kind = reply[0]
+        if kind == "ok":
+            return reply[1], reply[2]
+        if kind == "sdd":
+            raise SddError(reply[1], reply[2])
+        raise SddError("invalid_input", f"The query failed: {reply[1]}")
+
+    def _ensure(self) -> tuple[Connection, Connection]:
+        if self._proc is not None and self._proc.is_alive():
+            assert self._requests is not None
+            assert self._replies is not None
+            return self._requests, self._replies
+        self._kill()
+        ctx = multiprocessing.get_context("spawn")
+        # one-way pipes (os.pipe): no sockets, so pytest-socket has nothing to block
+        req_r, req_w = ctx.Pipe(duplex=False)
+        rep_r, rep_w = ctx.Pipe(duplex=False)
+        proc = ctx.Process(
+            target=_query_child,
+            args=(self.memory_mb, req_r, rep_w),
+            name="sdd-query",
+            daemon=True,
+        )
+        proc.start()
+        req_r.close()
+        rep_w.close()
+        self._proc, self._requests, self._replies = proc, req_w, rep_r
+        if not rep_r.poll(QUERY_START_TIMEOUT):
+            self._kill()
+            raise SddError("query_timeout", "The query worker did not start.", retryable=True)
+        try:
+            rep_r.recv()
+        except EOFError:
+            self._kill()
+            raise SddError(
+                "query_timeout", "The query worker did not start.", retryable=True
+            ) from None
+        return req_w, rep_r
+
+    def _kill(self) -> None:
+        proc, self._proc = self._proc, None
+        for pipe in (self._requests, self._replies):
+            if pipe is not None:
+                with contextlib.suppress(OSError):
+                    pipe.close()
+        self._requests = self._replies = None
+        if proc is not None:
+            with contextlib.suppress(Exception):
+                proc.kill()
+                proc.join(timeout=5)
+
+    def close(self) -> None:
+        """Stop the worker (if any). Safe to call twice."""
+        with self._lock:
+            self._kill()
 
 
 def _exec(conn: relate.Connection, cypher: str, params: Mapping[str, Any] | None) -> relate.Cursor:

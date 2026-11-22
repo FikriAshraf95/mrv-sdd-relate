@@ -12,3 +12,8 @@ playwright
 node_modules
 deploy/.env
 .env
+# not read by any COPY in the Dockerfile (it copies pyproject.toml, uv.lock, README.md, src, samples)
+deploy/
+docs/
+tests/
+scripts/

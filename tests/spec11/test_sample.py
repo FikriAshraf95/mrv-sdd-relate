@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SAMPLE = ROOT / "samples" / "courtside"
 BUNDLE = ROOT / "samples" / "courtside.bundle"
 SKIP = {".sdd", "__pycache__", ".pytest_cache"}
+SKIP_FILES = {"replay.toml"}  # demo tooling (SPEC-11 §5): not in the bundle
 GROUPS = (
     "specs",
     "sections",
@@ -40,7 +41,9 @@ def _files(root: Path) -> dict[str, bytes]:
     return {
         p.relative_to(root).as_posix(): p.read_bytes()
         for p in sorted(root.rglob("*"))
-        if p.is_file() and not SKIP & set(p.relative_to(root).parts)
+        if p.is_file()
+        and not SKIP & set(p.relative_to(root).parts)
+        and p.relative_to(root).as_posix() not in SKIP_FILES
     }
 
 

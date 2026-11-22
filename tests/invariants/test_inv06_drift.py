@@ -3,7 +3,7 @@ table of SPEC-08 §2 match what the code registers. Our own specs, parsed with o
 
 Entries the spec names but a later milestone builds are listed in ``PENDING_*`` with that
 milestone; the list must shrink to empty as they land (an entry that is registered fails).
-The endpoint part (SPEC-07 §2) is added with the dashboard (M05a).
+The endpoint part (SPEC-07 §2) is below; M06b made every route and command real.
 """
 
 from __future__ import annotations
@@ -19,14 +19,15 @@ from sdd.cli import app
 from sdd.mcp.server import TOOLS, create_server
 from sdd.parse import parse_spec
 from sdd.service.runtime import Runtime
+from sdd.web.public import PUBLIC_PATHS
+from tests.invariants.test_inv05_public_routes import daemon_routes
+from tests.spec_tables import spec07_endpoints
 
 SPECS = Path(__file__).resolve().parents[2] / "docs" / "specs"
 
 PENDING_TOOLS: dict[str, str] = {}
 PENDING_COMMANDS = {
-    "public": "M06b",
     "bench": "M07",
-    "demo": "M06b",
 }
 
 
@@ -76,3 +77,14 @@ def test_inv06_cli_commands_match_spec08() -> None:
     assert {"init", "context", "section", "query"} <= spec
     assert registered - spec == set(), "registered commands missing from SPEC-08 §2"
     assert spec - registered == set(PENDING_COMMANDS), "SPEC-08 §2 commands not registered"
+
+
+def test_inv06_endpoints_match_spec07(runtime: Runtime) -> None:
+    rows = spec07_endpoints()
+    spec = {(e.method, e.path) for e in rows}
+    assert len(rows) == len(spec) == 25, "SPEC-07 §2 lists 25 method+path pairs (endpoints 1-21)"
+    registered = set(daemon_routes(runtime))
+    assert registered - spec == set(), "registered routes missing from SPEC-07 §2"
+    assert spec - registered == set(), "SPEC-07 §2 endpoints not registered"
+    public = {(e.method, e.path) for e in rows if e.public}
+    assert public == set(PUBLIC_PATHS), "the ✓ rows of SPEC-07 §2 differ from PUBLIC_PATHS"

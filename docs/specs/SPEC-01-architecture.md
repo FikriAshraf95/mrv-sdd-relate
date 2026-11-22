@@ -79,6 +79,8 @@ Enforced by `import-linter` contracts in CI. `relate` appears only in `graph/sto
 - Storage mode: **directory store** at `<repo>/.sdd/graph/` (durability `full`). The live store is **never committed** (gitignored): a store a daemon writes to would keep the tree dirty, conflict on every merge and change under `git checkout`. Committed copies for judges are made by `sdd snapshot` ([SPEC-08 §3](SPEC-08-cli-and-exports.md#3-exports-and-snapshots), [DEC-001](../decisions/DEC-001-committed-store.md)).
 - One store per project. No cross-store queries (Relate has none). The global lessons store is a stretch goal and holds copies only.
 
+> **DEVIATION:** see [D006](../deviations/D006-guarded-queries-run-in-a-killable-worker-process-with-a.md) — Guarded queries run in a killable worker process with a memory cap
+
 ## 5. Daemon lifecycle
 
 1. Load config. If `.sdd/daemon.json` exists and its port answers `/api/health` for this project, refuse to start (`daemon_running`). A file whose daemon does not answer is stale and is ignored.

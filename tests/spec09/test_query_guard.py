@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 import time
 
 import pytest
@@ -92,6 +93,9 @@ def test_spec09_ac09_bounded_variable_length_accepted(runtime: Runtime) -> None:
     result = query_guard.run_query(runtime, "MATCH p=(a)-[*..4]->(b) RETURN p LIMIT 5")
     assert result["columns"] == ["p"]
     assert len(result["rows"]) == 5
+    # a path comes back as plain data: it crosses the worker's pipe and goes out as JSON
+    assert set(result["rows"][0][0]) == {"nodes", "relationships"}
+    json.dumps(result)
 
 
 def test_spec09_ac05_rollback_alone_keeps_the_store_unchanged(runtime: Runtime) -> None:
@@ -142,3 +146,35 @@ def test_spec09_ac06_slow_query_times_out_and_server_stays_responsive(runtime: R
     ok = client.post("/api/query", json={"cypher": "RETURN 1 AS one"})
     assert ok.status_code == 200
     assert ok.json()["rows"] == [[1]]
+
+
+# Builds a list of tens of millions of integers: far past a small memory cap.
+BOMB = "UNWIND range(1, 60000000) AS x WITH collect(x) AS xs RETURN size(xs) AS n"
+
+
+def test_spec09_ac06_memory_bomb_fails_and_server_stays_up(runtime: Runtime) -> None:
+    """A thread cannot bound memory; the worker process can (a Cartesian product once took a
+    512 MB container down before the time limit). The server survives and the next query runs."""
+    runtime.settings = dataclasses.replace(runtime.settings, query_memory_mb=256, query_timeout=10)
+    with pytest.raises(SddError) as err:
+        query_guard.run_query(runtime, BOMB)
+    assert err.value.code in ("query_timeout", "invalid_input")
+    assert not runtime.query_gate.locked()
+    assert query_guard.run_query(runtime, "RETURN 1 AS one")["rows"] == [[1]]
+
+
+def test_query_worker_is_reused_and_replaced_after_a_kill(runtime: Runtime) -> None:
+    query_guard.run_query(runtime, "RETURN 1 AS one")
+    worker = runtime.queries()
+    first = worker._proc
+    query_guard.run_query(runtime, "RETURN 2 AS two")
+    assert worker._proc is first  # warm: no new process per query
+    runtime.settings = dataclasses.replace(runtime.settings, query_timeout=0.3)
+    with pytest.raises(SddError) as err:
+        query_guard.run_query(runtime, SLOW)
+    assert err.value.code == "query_timeout"
+    assert first is not None
+    assert not first.is_alive()
+    runtime.settings = dataclasses.replace(runtime.settings, query_timeout=5)
+    assert query_guard.run_query(runtime, "RETURN 3 AS three")["rows"] == [[3]]
+    assert worker._proc is not first

@@ -11,10 +11,13 @@ Three layers, each enough on its own for the cases it covers:
    refuses only at commit, O11).
 3. **Snapshot.** It runs on a fresh ``read_only=True`` snapshot (O12), off the writer's queue.
 
-Limits: 100 rows (``truncated: true`` beyond); ``settings.query_timeout`` (5 s). ``relate-db``
-1.2.0 has no per-query timeout or row cap (O4), so the query runs on a worker thread and the
-caller gets ``query_timeout`` when the time is up. Python cannot stop that thread, so one gate
-per process lets **one** guarded query run at a time; the next waits up to the same limit.
+Limits: 100 rows (``truncated: true`` beyond); ``settings.query_timeout`` (5 s);
+``settings.query_memory_mb``. ``relate-db`` 1.2.0 has no per-query timeout, row cap or memory
+cap (O4), so a store on disk is queried in a worker process (``graph.store.QueryProcess``) that
+is killed at the time limit or dies at its memory cap; the caller gets ``query_timeout``. An
+in-memory store has no file for a worker to open, so its queries run on a thread that cannot be
+stopped. One gate per process lets **one** guarded query run at a time; the next waits up to
+the same limit.
 """
 
 from __future__ import annotations
@@ -200,6 +203,33 @@ def run_query(
             f"Another query is still running; try again in a few seconds (limit {limit:g} s).",
             retryable=True,
         )
+    if runtime.store.in_memory:
+        columns, rows = _on_thread(runtime, cypher, params, gate, limit)
+    else:
+        # a store on disk: the worker process, killed at the limit (it holds the gate till then)
+        try:
+            columns, rows = runtime.queries().run(
+                runtime.store.path, cypher, params, limit=MAX_ROWS + 1, timeout=limit
+            )
+        finally:
+            gate.release()
+    return {
+        "columns": columns,
+        "rows": rows[:MAX_ROWS],
+        "truncated": len(rows) > MAX_ROWS,
+        "synced_at": runtime.synced(),
+    }
+
+
+def _on_thread(
+    runtime: Runtime,
+    cypher: str,
+    params: dict[str, Any] | None,
+    gate: threading.Lock,
+    limit: float,
+) -> tuple[list[str], list[list[Any]]]:
+    """An in-memory store has no file a worker process could open: run on a thread, which
+    cannot be stopped, so the gate stays held until the abandoned query really ends."""
     future: Future[tuple[list[str], list[list[Any]]]] = Future()
 
     def work() -> None:
@@ -216,16 +246,10 @@ def run_query(
         gate.release()
         raise
     try:
-        columns, rows = future.result(timeout=limit)
+        return future.result(timeout=limit)
     except TimeoutError:
         raise SddError(
             "query_timeout",
             f"The query ran longer than {limit:g} s. Add a LIMIT or narrow the pattern.",
             retryable=True,
         ) from None
-    return {
-        "columns": columns,
-        "rows": rows[:MAX_ROWS],
-        "truncated": len(rows) > MAX_ROWS,
-        "synced_at": runtime.synced(),
-    }

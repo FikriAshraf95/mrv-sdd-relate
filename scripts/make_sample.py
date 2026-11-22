@@ -40,6 +40,8 @@ ROOT = Path(__file__).resolve().parents[1]
 SAMPLE = ROOT / "samples" / "courtside"
 BUNDLE = ROOT / "samples" / "courtside.bundle"
 SKIP_DIRS = {".sdd", "__pycache__", ".pytest_cache"}
+# demo tooling (SPEC-11 §5): read by `sdd demo`, not part of Courtside's history, not in the bundle
+SKIP_FILES = {"replay.toml"}
 
 NADIA = "Nadia Okafor <nadia.okafor@courtside.example>"
 TOMAS = "Tomás Reyes <tomas.reyes@courtside.example>"
@@ -545,7 +547,7 @@ def sample_files() -> dict[str, bytes]:
     out = {}
     for path in sorted(SAMPLE.rglob("*")):
         rel = path.relative_to(SAMPLE)
-        if path.is_file() and not SKIP_DIRS & set(rel.parts):
+        if path.is_file() and not SKIP_DIRS & set(rel.parts) and rel.as_posix() not in SKIP_FILES:
             out[rel.as_posix()] = path.read_bytes()
     return out
 

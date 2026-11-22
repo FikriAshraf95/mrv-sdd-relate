@@ -27,14 +27,16 @@ Used by the `query` tool, `POST /api/query` and `sdd query`.
 4. Variable-length patterns without an upper bound (`*`, `*2..`) are rejected **in every mode**, daemon included, because a runaway query blocks claims; the maximum is `*..4`.
 5. `SDD_PUBLIC_QUERY` = `guarded` (default) or `presets` (only preset names run; the box is display-only).
 
+> **DEVIATION:** see [D006](../deviations/D006-guarded-queries-run-in-a-killable-worker-process-with-a.md) — Guarded queries run in a killable worker process with a memory cap
+
 ## 4. Public mode
 
 `sdd public` is a different process from the daemon:
 - Opens the store with `read_only=True` and reopens when `manifest.json` changes ([SPEC-01 §1](SPEC-01-architecture.md#1-process-model)).
-- Serves only the endpoints marked public in [SPEC-07 §2](SPEC-07-dashboard-and-api.md#2-endpoint-index). Write endpoints return 403 `read_only`; `/mcp` is not mounted at all (404).
-- Rate limit in-process: 60 requests/min per IP for `/api/query`, 600/min for the rest (Cloudflare adds its own rules); over the limit, 429 `rate_limited` with `Retry-After`. The client IP comes from `CF-Connecting-IP` (then `X-Forwarded-For`) **only** for requests from the trusted proxy network `SDD_TRUSTED_PROXY_NET` (set to `COMPOSE_SUBNET` in [SPEC-11 §7](SPEC-11-deployment-and-demo.md#7-home-hosting)); otherwise from the socket.
+- Serves only the endpoints marked public in [SPEC-07 §2](SPEC-07-dashboard-and-api.md#2-endpoint-index). Write endpoints return 403 `read_only`; `/mcp` is not mounted at all (404), and any non-GET request to an unknown path is 404 too. It serves public data only and has no write route, so it has **no Host, token or Origin check** (those belong to the daemon, [§2](#2-local-daemon)). It **ignores `agent` parameters** (some read paths would write agent state). With `SDD_PUBLIC_QUERY=presets`, `POST /api/query` answers 400 `query_rejected` ("Only the named presets run on this server."); presets still run through `/api/presets/{name}`.
+- Rate limit in-process: 60 requests/min per IP for `/api/query`, 600/min for the rest (Cloudflare adds its own rules); over the limit, 429 `rate_limited` with `Retry-After`. The client IP comes from `CF-Connecting-IP` (then `X-Forwarded-For`) **only** for requests from the trusted proxy network `SDD_TRUSTED_PROXY_NET` (set to `COMPOSE_SUBNET` in [SPEC-11 §7](SPEC-11-deployment-and-demo.md#7-home-hosting)); otherwise from the socket. Uvicorn runs with `proxy_headers=False`, so it never rewrites the client address itself.
 - Response headers: `Content-Security-Policy: default-src 'self'`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`.
-- Error responses never include stack traces or file system paths outside the project.
+- Error responses never include stack traces or file system paths outside the project (an unhandled error answers a bare 500 `Internal Server Error`, with the headers above).
 
 ## 5. Hosted demo infrastructure
 

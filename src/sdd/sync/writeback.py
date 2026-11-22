@@ -38,6 +38,7 @@ __all__ = [
     "add_spec_note",
     "add_task_ids",
     "atomic_write",
+    "clear_status_line",
     "complete_milestone",
     "insert_index_row",
     "log_deviation",
@@ -47,11 +48,14 @@ __all__ = [
     "set_status_line",
     "tick_line",
     "tick_task",
+    "untick_all",
+    "untick_line",
     "write_status_block",
 ]
 
 _MARKER = re.compile(r"^(\s*[-*] \[[ xX]\] )")
 _UNCHECKED = re.compile(r"^(\s*[-*] )\[ \]( )")
+_CHECKED = re.compile(r"^(\s*[-*] )\[[xX]\]( )")
 _STABLE_NUMBER = re.compile(r"\.(\d+)$")
 
 
@@ -154,6 +158,27 @@ def tick_line(path: str, text: str, task_id: str) -> tuple[str, bool]:
         return text, False
     lines[index] = _UNCHECKED.sub(r"\1[x]\2", lines[index], count=1)
     return "\n".join(lines), True
+
+
+def untick_line(line: str) -> tuple[str, bool]:
+    """``- [x] …`` → ``- [ ] …`` on one line: ``(new_line, changed)``."""
+    new = _CHECKED.sub(r"\1[ ]\2", line, count=1)
+    return new, new != line
+
+
+def untick_all(path: str, text: str) -> tuple[str, int]:
+    """Untick every checked task line the parser finds in ``text`` (``\n`` endings): ``(text,
+    count)``. Lines in code fences are never touched. Used by ``sdd demo prepare`` (SPEC-11 §4)."""
+    lines = text.split("\n")
+    count = 0
+    for node in parse_milestone(path, text).nodes:
+        if node.label != "Task":
+            continue
+        index = int(node.props["source_line"]) - 1
+        if 0 <= index < len(lines):
+            lines[index], changed = untick_line(lines[index])
+            count += changed
+    return "\n".join(lines), count
 
 
 def tick_task(
@@ -712,6 +737,25 @@ def set_status_line(text: str, line: str) -> tuple[str, bool]:
     if _DONE.search(" ".join(lines[idx:end])):
         return text, False
     lines[idx:end] = [line]
+    return "\n".join(lines), True
+
+
+def clear_status_line(text: str) -> tuple[str, bool]:
+    """Empty the ``**Status:**`` paragraph (whatever it says, ``DONE`` included) to a bare
+    ``**Status:**`` line. ``(text, changed)``; a file without one is returned as is."""
+    lines = text.split("\n")
+    fenced = _fences(lines)
+    idx = next(
+        (i for i, ln in enumerate(lines) if not fenced[i] and _STATUS.match(ln.strip())), None
+    )
+    if idx is None:
+        return text, False
+    end = idx + 1
+    while end < len(lines) and lines[end].strip() and not _HEADING.match(lines[end]):
+        end += 1
+    if lines[idx:end] == ["**Status:**"]:
+        return text, False
+    lines[idx:end] = ["**Status:**"]
     return "\n".join(lines), True
 
 

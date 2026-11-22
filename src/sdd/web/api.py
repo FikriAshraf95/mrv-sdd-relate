@@ -22,12 +22,14 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from sdd.errors import SddError
 from sdd.service import api_views, changes, context, coordination, exports, impact, query_guard
 from sdd.service.runtime import Runtime
 from sdd.web import sse
 from sdd.web.errors import HTTP_STATUS, error_response
+from sdd.web.public import PublicMiddleware
 from sdd.web.security import SecurityMiddleware
 
 __all__ = ["HTTP_STATUS", "STATIC_DIR", "create_app"]
@@ -87,14 +89,39 @@ def _bool(data: dict[str, Any], name: str) -> bool:
     return value
 
 
+class _GetOnly:
+    """Public mode: the dashboard answers GET and HEAD; any other method on an unknown path is a
+    404 (so ``POST /mcp`` is 404, not the static handler's 405)."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http" and scope["method"] not in ("GET", "HEAD"):
+            await Response("Not Found", status_code=404, media_type="text/plain")(
+                scope, receive, send
+            )
+            return
+        await self.app(scope, receive, send)
+
+
 def create_app(  # noqa: PLR0915 - one flat closure per endpoint
-    runtime: Runtime, *, mcp_app: Starlette | None = None
+    runtime: Runtime, *, mcp_app: Starlette | None = None, public: bool = False
 ) -> Starlette:
+    """The API. ``public=True`` is ``sdd public`` (SPEC-09 §4): no ``/mcp``, the write routes answer
+    403 ``read_only``, ``agent`` parameters are ignored, and :class:`PublicMiddleware` replaces
+    the daemon's security middleware."""
+    if public and mcp_app is not None:
+        raise ValueError("public mode never mounts /mcp")
+
+    def agent_of(request: Request) -> str | None:
+        return None if public else _q(request, "agent")
+
     def health(request: Request) -> Response:
         return JSONResponse(api_views.health(runtime))
 
     def status(request: Request) -> Response:
-        return JSONResponse(api_views.status(runtime, _q(request, "agent")))
+        return JSONResponse(api_views.status(runtime, agent_of(request)))
 
     def graph(request: Request) -> Response:
         raw = request.query_params.get("labels", "")
@@ -119,17 +146,17 @@ def create_app(  # noqa: PLR0915 - one flat closure per endpoint
 
     def next_tasks(request: Request) -> Response:
         result = coordination.next_tasks(
-            runtime, _q(request, "milestone"), _int(request, "limit", 10), _q(request, "agent")
+            runtime, _q(request, "milestone"), _int(request, "limit", 10), agent_of(request)
         )
         return JSONResponse(result)
 
     def what_changed(request: Request) -> Response:
         since = request.query_params.get("since", "")
-        return JSONResponse(changes.what_changed(runtime, since, _q(request, "agent")))
+        return JSONResponse(changes.what_changed(runtime, since, agent_of(request)))
 
     def section(request: Request) -> Response:
         ref = request.path_params["ref"]
-        return JSONResponse(context.read_section(runtime, ref, _q(request, "agent")))
+        return JSONResponse(context.read_section(runtime, ref, agent_of(request)))
 
     def task_context(request: Request) -> Response:
         result = context.get_context(
@@ -137,7 +164,7 @@ def create_app(  # noqa: PLR0915 - one flat closure per endpoint
             request.path_params["id"],
             request.query_params.get("detail") or "task",
             _int(request, "max_chars", 24000),
-            _q(request, "agent"),
+            agent_of(request),
         )
         return JSONResponse(result)
 
@@ -146,12 +173,12 @@ def create_app(  # noqa: PLR0915 - one flat closure per endpoint
             runtime,
             request.query_params.get("target", ""),
             _int(request, "depth", 3),
-            _q(request, "agent"),
+            agent_of(request),
         )
         return JSONResponse(result)
 
     def explain(request: Request) -> Response:
-        result = impact.explain(runtime, request.query_params.get("path", ""), _q(request, "agent"))
+        result = impact.explain(runtime, request.query_params.get("path", ""), agent_of(request))
         return JSONResponse(result)
 
     def find(request: Request) -> Response:
@@ -162,7 +189,7 @@ def create_app(  # noqa: PLR0915 - one flat closure per endpoint
             table=_q(request, "table"),
             spec=_q(request, "spec"),
             text=_q(request, "text"),
-            agent=_q(request, "agent"),
+            agent=agent_of(request),
         )
         return JSONResponse(result)
 
@@ -181,6 +208,8 @@ def create_app(  # noqa: PLR0915 - one flat closure per endpoint
         return Response(text, media_type="text/plain; charset=utf-8")
 
     async def query(request: Request) -> Response:
+        if public and runtime.settings.public_query == "presets":
+            raise SddError("query_rejected", "Only the named presets run on this server.")
         data = await _body(request)
         params = data.get("params")
         if params is not None and not isinstance(params, dict):
@@ -190,7 +219,7 @@ def create_app(  # noqa: PLR0915 - one flat closure per endpoint
             runtime,
             _str(data, "cypher") or "",
             params,
-            _str(data, "agent"),
+            None if public else _str(data, "agent"),
         )
         return JSONResponse(result)
 
@@ -249,9 +278,16 @@ def create_app(  # noqa: PLR0915 - one flat closure per endpoint
             _str(data, "verification") or "",
         )
 
+    async def read_only(request: Request) -> Response:
+        raise SddError("read_only", "This is the read-only public demo.")
+
     async def sdd_error(request: Request, exc: Exception) -> Response:
         assert isinstance(exc, SddError)
         return error_response(exc)
+
+    def gated(endpoint: Any) -> Any:
+        """The write routes stay registered in public mode and answer 403 ``read_only``."""
+        return read_only if public else endpoint
 
     routes: list[Any] = [
         Route("/api/health", health, methods=["GET"]),
@@ -271,12 +307,12 @@ def create_app(  # noqa: PLR0915 - one flat closure per endpoint
         Route("/api/mermaid", mermaid, methods=["GET"]),
         Route("/api/query", query, methods=["POST"]),
         Route("/api/events", sse.events(runtime), methods=["GET"]),
-        Route("/api/tasks/{id}/claim", writer(claim), methods=["POST"]),
-        Route("/api/tasks/{id}/release", writer(release), methods=["POST"]),
-        Route("/api/tasks/{id}/complete", writer(complete), methods=["POST"]),
-        Route("/api/deviations", writer(deviation), methods=["POST"]),
-        Route("/api/milestones/{id}/complete", writer(milestone_done), methods=["POST"]),
-        Route("/api/sync", sync, methods=["POST"]),
+        Route("/api/tasks/{id}/claim", gated(writer(claim)), methods=["POST"]),
+        Route("/api/tasks/{id}/release", gated(writer(release)), methods=["POST"]),
+        Route("/api/tasks/{id}/complete", gated(writer(complete)), methods=["POST"]),
+        Route("/api/deviations", gated(writer(deviation)), methods=["POST"]),
+        Route("/api/milestones/{id}/complete", gated(writer(milestone_done)), methods=["POST"]),
+        Route("/api/sync", gated(sync), methods=["POST"]),
         Route("/api/next", next_tasks, methods=["GET"]),
     ]
     lifespan = None
@@ -290,10 +326,16 @@ def create_app(  # noqa: PLR0915 - one flat closure per endpoint
                 yield
 
     # the dashboard goes last so that /api and /mcp win
-    routes.append(Mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="dashboard"))
+    dashboard: ASGIApp = StaticFiles(directory=STATIC_DIR, html=True)
+    routes.append(Mount("/", _GetOnly(dashboard) if public else dashboard, name="dashboard"))
+    middleware = (
+        Middleware(PublicMiddleware, settings=runtime.settings)
+        if public
+        else Middleware(SecurityMiddleware, settings=runtime.settings)
+    )
     return Starlette(
         routes=routes,
-        middleware=[Middleware(SecurityMiddleware, settings=runtime.settings)],
+        middleware=[middleware],
         exception_handlers={SddError: sdd_error},
         lifespan=lifespan,
     )

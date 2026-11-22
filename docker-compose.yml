@@ -1,0 +1,51 @@
+# Judges: `docker compose up` serves the Courtside sample dashboard at http://localhost:8770
+# (SPEC-11 §2). The sample is copied from its bundle into the `sample-data` volume on every
+# start, so a restart always shows the start state. Also serves /mcp for Claude Code.
+name: relate-sdd-sample
+
+services:
+  sample:
+    build:
+      context: .
+      target: runtime
+    image: relate-sdd/sdd:local
+    command:
+      - demo
+      - serve
+      - --sample
+      - /app/samples/courtside
+      - --data
+      - /data
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8770"
+    environment:
+      SDD_ALLOW_REMOTE: "1"
+      SDD_PROJECT_NAME: courtside
+    ports:
+      - "127.0.0.1:8770:8770"
+    volumes:
+      - sample-data:/data
+    restart: unless-stopped
+    healthcheck:
+      # the image has no curl; the Host header urllib sends (127.0.0.1:8770) is a loopback host
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request as u; u.urlopen('http://127.0.0.1:8770/api/health', timeout=3)"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  sample-data: {}

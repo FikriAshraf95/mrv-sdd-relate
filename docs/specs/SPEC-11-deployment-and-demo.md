@@ -23,7 +23,7 @@ docker compose -f docker-compose.dev.yml exec dev uv run sdd daemon --host 0.0.0
 | File | For | Services |
 |---|---|---|
 | `docker-compose.dev.yml` | Development | `dev` (bind mount `.:/workspace`, volumes `venv`, `uvcache`, port `127.0.0.1:8770:8770`, `command: sleep infinity`) |
-| `docker-compose.yml` | **Judges**: `docker compose up` | `sample`: the runtime image running `sdd demo serve` (prepare, then the daemon; [SPEC-08 §2](SPEC-08-cli-and-exports.md#2-commands)) on a copy of the sample project in a volume, port `127.0.0.1:8770:8770`. Dashboard at `http://localhost:8770` |
+| `docker-compose.yml` (project `relate-sdd-sample`) | **Judges**: `docker compose up` | `sample`: the runtime image running `sdd demo serve` (prepare, then the daemon; [SPEC-08 §2](SPEC-08-cli-and-exports.md#2-commands)) on a copy of the sample project in a volume, port `127.0.0.1:8770:8770`. Dashboard at `http://localhost:8770` |
 | `deploy/docker-compose.yml` | Home server ([§7](#7-home-hosting)) | `replay` (writer, [§4](#4-sprint-replay)), `public` (`sdd public`, store volume mounted read-only), `cloudflared` (profile `tunnel`) |
 
 Inside containers the daemon binds `0.0.0.0` with `SDD_ALLOW_REMOTE=1`; the root Compose files publish every port on `127.0.0.1` only ([SPEC-09 §2](SPEC-09-security.md#2-local-daemon)). All long-running services: `restart: unless-stopped`, a healthcheck, and the limits in [SPEC-09 §5](SPEC-09-security.md#5-hosted-demo-infrastructure). Services with HTTP (`sample`, `public`) check `/api/health`. `replay` has no HTTP server: it touches `/data/run/.sdd/replay.heartbeat` every tick, and its healthcheck passes when that file exists and is younger than 30 s.
@@ -36,10 +36,10 @@ Stage **`build`**: `uv sync --frozen --no-dev --no-editable` into `/opt/venv` (n
 
 `sdd demo replay --sample samples/<name> --data /data` makes the hosted demo move:
 
-1. **Prepare:** copy the sample's working tree and history into `/data/run` (a fresh git repo from the sample's bundle, [§5](#5-sample-project)) and apply its `replay.toml` start state (which milestones start unticked).
-2. **Run** in-process (the replay process owns `/data/run/.sdd/graph`): one orchestrator and three workers named `opus-orch`, `sonnet-1…3`. Every tick (`SDD_REPLAY_TICK`, default 4 s) an idle worker calls `next_tasks` → `claim_task`; a busy worker finishes after 2–5 ticks with `complete_task` (notes and files from `replay.toml`, or generated from the task's governed sections). Deviations scripted in `replay.toml` are logged on their tasks with `log_deviation`. When a milestone's tasks are done, the orchestrator calls `complete_milestone`.
-3. **Checkpoint** after every write, so `public` sees it on its next reopen (≤ 2 s).
-4. **Loop:** when the scripted milestones are done or after `SDD_REPLAY_MAX_MIN` (default 20) minutes, pause 30 s, reset to step 1, and continue. Deterministic with `--seed`.
+1. **Prepare:** copy the sample's working tree and history into `/data/run` (a fresh git repo from the sample's bundle, [§5](#5-sample-project)) and apply its `replay.toml` start state: every task box of the listed milestones is unticked and their `**Status:**` line emptied (through `sync/writeback.py`; the start state is not committed). `replay.toml` keys: `[start] unticked = [milestone IDs]` (milestones outside `done/`; anything else is `invalid_input`); `[run] milestones = [IDs, worked in this order]` and `verification = "…"` (the text of each `complete_milestone`); optional `[[task]] id, notes, files` outcomes; optional `[[deviation]] task, title, amends, spec_says, does, why, consequences, affects`, logged by the worker holding `task` just before it completes it. An unknown key, or a task outside `run.milestones`, is `invalid_input` naming the key.
+2. **Run** in-process (the replay process owns `/data/run/.sdd/graph`): one orchestrator and three workers named `opus-orch`, `sonnet-1…3`. Every tick (`SDD_REPLAY_TICK`, default 4 s) an idle worker calls `next_tasks` → `claim_task`; a busy worker finishes after 2–5 ticks with `complete_task` (notes and files from `replay.toml`, or generated: `Done per <the sections the task line links to>.`, or `Done.` when it links none, and no files; an idle worker only claims tasks of the first `run.milestones` entry that is not done). Deviations scripted in `replay.toml` are logged on their tasks with `log_deviation`. When a milestone's tasks are done, the orchestrator calls `complete_milestone`.
+3. **Checkpoint** after every write (and after the startup sync), so `public` sees it on its next reopen (≤ 2 s). The replay touches `/data/run/.sdd/replay.heartbeat` after every tick and **every 5 s during any pause or sleep** (the 30 s reset pause included), so the 30 s healthcheck of [§2](#2-compose) never fails while the replay is healthy.
+4. **Loop:** when the scripted milestones are done or after `SDD_REPLAY_MAX_MIN` (default 20) minutes, pause 30 s, reset to step 1, and continue. Deterministic with `--seed`. The reset swaps late: it prepares a fresh copy in `/data/run.next` and syncs it, then closes the live store and runs `rename run → run.old`, `rename run.next → run`, removes `run.old` and reopens `/data/run`. `public` sees one `manifest.json` change and reopens; while the directory is between the two renames its open fails and it keeps the old snapshot until the next check.
 
 ## 5. Sample project
 
@@ -48,7 +48,7 @@ Stage **`build`**: `uv sync --frozen --no-dev --no-editable` into `/opt/venv` (n
 - **Format:** the office-suite conventions (`**Spec ID:**` headers, `### <table>` schema tables with `→ <table> [restrict]`, letter-suffixed milestones, `**Status: DONE (…)**` paragraphs, plan files, nested `> > **DEVIATION:**` notes), plus this tool's conventions (task IDs, `(after …)`, Feature lines). It grows out of the `suite_style` fixture ([SPEC-10 §3](SPEC-10-testing-and-benchmark.md#3-fixtures)).
 - **Size:** about 6 specs (one schema spec with 6–8 tables), 8 milestones (some done, some letter-suffixed, one with a plan file), about 6 deviations, and a code tree of small placeholder files grouped by feature, so Feature globs, `explain` and `find_code` have something to show.
 - **History:** `scripts/make_sample.py` scripts a linear git history (as `samples/<name>.bundle`) that builds the milestones in order, with commits naming their tasks (`[M03.2]`), so `COMPLETES`, `TOUCHES` and `explain` have real data.
-- **Story by design:** the centrepiece table is `bookings`: defined in SPEC-02 §3, used by SPEC-03, 04, 05 and 06 and their features, written by tasks of M02, M03a, M03b, M04 and M05a, affected by four deviations (D002, D003, D005, D006), and tested through SPEC-02's checks, so `sdd impact bookings` fills every group (specs, sections, tables, features, files, open and done tasks, deviations, tests, commits) with `via` chains (SPEC-00 §7 item 5). Some milestones are left unticked in `replay.toml` for the live replay ([§4](#4-sprint-replay)).
+- **Story by design:** the centrepiece table is `bookings`: defined in SPEC-02 §3, used by SPEC-03, 04, 05 and 06 and their features, written by tasks of M02, M03a, M03b, M04 and M05a, affected by four deviations (D002, D003, D005, D006), and tested through SPEC-02's checks, so `sdd impact bookings` fills every group (specs, sections, tables, features, files, open and done tasks, deviations, tests, commits) with `via` chains (SPEC-00 §7 item 5). Some milestones are left unticked in `replay.toml` for the live replay ([§4](#4-sprint-replay)). `samples/courtside/replay.toml` is the one file of the sample folder that is **not in the bundle** (demo tooling, not part of Courtside's history): `make_sample.py` and the sample tests leave it out of the tip-tree comparison.
 - **Files:** the sample's final files are `samples/courtside/` (docs, code, `CLAUDE.md` with a generated status block). `make_sample.py` replays about forty commits (fixed authors and dates, so the SHAs never change) into a temp repository, checks that its tip tree equals the folder byte for byte, and bundles it as `samples/courtside.bundle`; the repository root's `.sddignore` lists `samples/`, so this repo's own graph never walks it. It then syncs a clone of the bundle, so git sync sees the history even though `samples/courtside/` is a sub-folder of this repository, and fails unless `sdd doctor` on the sample shows zero warnings, `impact bookings` fills every group and no temp path is in `graph.json`.
 - **Store:** `make_sample.py` finally runs `sdd sync` and `sdd snapshot` on the sample (the built store is `samples/courtside/.sdd/graph/`, the copies are `samples/courtside/.sdd/snapshots/{graph/, graph.rl, graph-json/}`). Its `.sdd/graph/` is a build output that no daemon ever runs on (judges' Compose and the replay work on a copy in a volume), so it is committed as is, with the snapshot copies ([SPEC-08 §3](SPEC-08-cli-and-exports.md#3-exports-and-snapshots), [DEC-001](../decisions/DEC-001-committed-store.md)).
 
@@ -84,7 +84,7 @@ PUBLIC_BIND=127.0.0.1
 PUBLIC_PORT=8780
 
 # Demo behaviour
-SAMPLE=CHANGE_ME                  # folder name under samples/
+SAMPLE=courtside                  # folder name under samples/
 SDD_PUBLIC_QUERY=guarded          # guarded | presets
 SDD_REPLAY_TICK=4
 SDD_REPLAY_MAX_MIN=20
@@ -97,7 +97,7 @@ TUNNEL_TOKEN=
 CLOUDFLARED_VERSION=2026.10.3
 ```
 
-No other secrets: the hosted demo has no database, no accounts and no write path.
+No other secrets: the hosted demo has no database, no accounts and no write path. The Compose files also set `SDD_PROJECT_NAME` (the name `/api/health` reports as `project`; default: the project folder's name, which would be `run` here, so `public` gets `${SAMPLE}`) and pass `PUBLIC_BASE_URL` through (`/api/health` `base_url`, shown in the dashboard footer).
 
 ### 7.2 Services
 | Service | Image | Networks | Notes |
