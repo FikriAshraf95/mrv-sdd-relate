@@ -58,7 +58,7 @@ If the server already runs a shared `cloudflared` for other apps, skip the `tunn
 ## 5. Cloudflare rules
 
 - Rate-limit `POST /api/query` (for example 30 per minute per IP). The server also limits itself (60 per minute for `/api/query`, 600 per minute for everything else).
-- Cache the dashboard's assets by extension (`.js`, `.css`, `.svg`). The dashboard is served at `/`, not under a `/static/` prefix. Never cache `/api/*`, and do not cache `/` itself, so a deploy shows at once.
+- Cache the dashboard's assets only with a rule that respects the origin's headers (Cloudflare: "Use cache-control header if present"). Every dashboard file is sent with `Cache-Control: no-cache`, so the CDN and browsers keep a copy but revalidate it by ETag before using it (a cheap 304) and a deploy shows at once. A rule that forces its own TTL by extension (`.js`, `.css`) serves stale files after a deploy; if that happens, purge the cache and fix the rule. The dashboard is served at `/`, not under a `/static/` prefix. Never cache `/api/*`.
 - Turn on Bot Fight Mode.
 
 `/api/events` (server-sent events) passes through tunnels. If a proxy buffers it, the dashboard falls back to polling.

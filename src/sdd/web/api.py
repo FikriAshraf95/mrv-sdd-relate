@@ -37,6 +37,17 @@ __all__ = ["HTTP_STATUS", "STATIC_DIR", "create_app"]
 STATIC_DIR = Path(__file__).parent / "static"
 
 
+class _Dashboard(StaticFiles):
+    """The dashboard's files change on every deploy, so a copy kept by a browser or a CDN must be
+    revalidated before it is used: `no-cache` allows the copy but not its use unchecked. The
+    ETag and Last-Modified StaticFiles already sends make the check a cheap 304."""
+
+    async def get_response(self, path: str, scope: Scope) -> Response:
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
 def _int(request: Request, name: str, default: int) -> int:
     raw = request.query_params.get(name)
     if raw is None or raw == "":
@@ -326,7 +337,7 @@ def create_app(  # noqa: PLR0915 - one flat closure per endpoint
                 yield
 
     # the dashboard goes last so that /api and /mcp win
-    dashboard: ASGIApp = StaticFiles(directory=STATIC_DIR, html=True)
+    dashboard: ASGIApp = _Dashboard(directory=STATIC_DIR, html=True)
     routes.append(Mount("/", _GetOnly(dashboard) if public else dashboard, name="dashboard"))
     middleware = (
         Middleware(PublicMiddleware, settings=runtime.settings)

@@ -275,3 +275,18 @@ def test_graph_modules_stay_off_the_network_and_markup() -> None:
         text = _own_text()[name]
         assert not re.search(r"\b(?:fetch|XMLHttpRequest|WebSocket)\b", text), name
     assert "api." not in _own_text()["graph3d.js"]  # data arrives by call, not by request
+
+
+def test_dashboard_files_are_revalidated_not_cached_blindly(app: TestClient) -> None:
+    """A CDN (Cloudflare caches .css and .js by extension) or a browser must check a dashboard file
+    with the server before using its copy, so a deploy shows at once (M09 deploy finding)."""
+    for path in ("/", "/style.css", "/graph3d.js", "/vendor/MANIFEST.json"):
+        first = app.get(path)
+        assert first.status_code == 200, path
+        assert first.headers["cache-control"] == "no-cache", path
+        # the revalidation itself is a cheap 304 that carries the header too
+        again = app.get(path, headers={"if-none-match": first.headers["etag"]})
+        assert again.status_code == 304, path
+        assert again.headers["cache-control"] == "no-cache", path
+    # the API is not touched by this rule
+    assert "cache-control" not in app.get("/api/health").headers
