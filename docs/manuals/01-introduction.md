@@ -26,6 +26,9 @@ SDD Graph is a small Python daemon that runs next to your repo. It reads your sp
 ![The Impact view for the bookings table](images/impact-bookings.png)
 *Impact for the `bookings` table: every spec, section, file, task, deviation, test and commit it reaches, each with the chain of links that connects it.*
 
+![The Graph tab in 3D: every node of the sample, coloured by label](images/graph-3d.png)
+*The Graph tab opens in 3D on the whole graph; a toggle switches to a flat 2D view.*
+
 ## Measured results
 
 `sdd bench` compares the graph with the Markdown workflow, and you can reproduce the numbers ([full results](../../bench/results/2026-11-22.md)):

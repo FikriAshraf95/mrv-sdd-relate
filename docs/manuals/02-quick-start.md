@@ -28,7 +28,7 @@ What the container does: it runs `sdd demo serve`, which takes a fresh copy of t
 
 The dashboard opens on the **Board** tab.
 
-![The Board](images/board.png)
+![The Board](images/board-start.png)
 
 **You should see:**
 - A milestone picker with 8 milestones. M01, M02, M03a, M03b and M04 show full counts (`4/4`, `3/3`); M05a, M05b and M06 are at `0/…`.
@@ -41,15 +41,24 @@ On the live demo, cards move by themselves: simulated agents `sonnet-1` to `sonn
 
 ## Step 3: the Graph
 
-Click **Graph**.
+Click **Graph**. It opens in 3D on the whole graph.
 
-![The Graph tab](images/graph-milestone.png)
+![The Graph tab in 3D](images/graph-3d.png)
 
-**You should see** the current milestone, its tasks (green), the spec sections it reads (light blue) and related milestones (purple). Then:
+**You should see** every node of the sample as a sphere, coloured by label and sized by how many links it has: tasks (teal), spec sections (light blue), milestones (purple), files (grey), commits (yellow), tables and columns (green) and so on. The layout moves for a second or two and then settles. Then:
+- **Drag** to orbit, **scroll** to zoom. The view turns slowly until you touch it.
+- **Hover** a node to show its label and highlight its links. The busiest nodes always carry a label.
 - **Click** a node to see all its properties in the side panel. For a milestone you'll see `goal`, `acceptance`, `model` and the raw header.
-- **Double-click** a node to expand its neighbours.
-- Use the label checkboxes to hide labels, the search box to find a node by ID or title, and **Presets** → `schema` to see every label and relationship type with counts (the meta-graph).
+- **Double-click** a node (double-tap on a phone) to fly to it and expand its neighbours.
+- Use the label checkboxes to hide labels and the search box to fly to a node by ID or title.
+- **Presets** are ready-made views. `schema` shows every label and relationship type with counts (the meta-graph) and opens in 2D. The others (`milestone`, `impact`, `explain`, `lineage`, `feature`) take a value: pick one and a searchable list of valid IDs opens under the box. Type to narrow it, then press Enter or click an entry.
 - **Reset** returns to the start view.
+
+![Picking a milestone from the Presets list](images/graph-presets.png)
+
+Press **2D** for the flat view: the same graph, laid out so that nodes keep apart, with labels on the busiest nodes, on hover and on selection. It is also what you get when the browser has no WebGL (the **3D** button is then disabled).
+
+![The Graph tab in 2D](images/graph-2d.png)
 
 ## Step 4: one Impact query
 
