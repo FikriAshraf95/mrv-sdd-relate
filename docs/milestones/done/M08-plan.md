@@ -1,6 +1,6 @@
 # M08 implementation plan (Opus plan → Sonnet build)
 
-Source of truth: [SPEC-11 §6, §9](../specs/SPEC-11-deployment-and-demo.md#6-static-demo-github-pages), [SPEC-07 §1, §4](../specs/SPEC-07-dashboard-and-api.md#1-rules), [SPEC-08 §2–3](../specs/SPEC-08-cli-and-exports.md#2-commands), [SPEC-06 §5](../specs/SPEC-06-code-context.md#5-presets), [SPEC-11 §4](../specs/SPEC-11-deployment-and-demo.md#4-sprint-replay), [SPEC-00 §8](../specs/SPEC-00-overview.md#8-schedule-and-open-items) (O2). Milestone: [M08](M08-static-demo.md). Previous plan: [M06b-plan](done/M06b-plan.md).
+Source of truth: [SPEC-11 §6, §9](../../specs/SPEC-11-deployment-and-demo.md#6-static-demo-github-pages), [SPEC-07 §1, §4](../../specs/SPEC-07-dashboard-and-api.md#1-rules), [SPEC-08 §2–3](../../specs/SPEC-08-cli-and-exports.md#2-commands), [SPEC-06 §5](../../specs/SPEC-06-code-context.md#5-presets), [SPEC-11 §4](../../specs/SPEC-11-deployment-and-demo.md#4-sprint-replay), [SPEC-00 §8](../../specs/SPEC-00-overview.md#8-schedule-and-open-items) (O2). Milestone: [M08](M08-static-demo.md). Previous plan: [M06b-plan](M06b-plan.md).
 Follow `CLAUDE.md`. **D007 is the highest deviation.** This plan expects **one** new deviation, D008 (§7). Log anything else you knowingly depart from with `sdd deviation …` (D009…).
 
 ## 0. Scope and boundaries
