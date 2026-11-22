@@ -42,10 +42,12 @@ __all__ = [
     "insert_index_row",
     "log_deviation",
     "render_deviation",
+    "replace_status_block",
     "rewrite_links",
     "set_status_line",
     "tick_line",
     "tick_task",
+    "write_status_block",
 ]
 
 _MARKER = re.compile(r"^(\s*[-*] \[[ xX]\] )")
@@ -812,3 +814,58 @@ def complete_milestone(
             written.append(dest)
     report = indexer.sync_tx(tx, settings, cache=cache)
     return MilestoneDoneResult(new_path, path if move else None, sorted(written), report)
+
+
+# ---------------------------------------------------------------- CLAUDE.md status block (M06a)
+
+STATUS_OPEN = "<!-- sdd:status -->"
+STATUS_CLOSE = "<!-- /sdd:status -->"
+
+
+def replace_status_block(text: str, block: str) -> tuple[str, bool]:
+    """Replace the lines between the two status markers with ``block`` (SPEC-08 §3).
+
+    Pure, on ``\n`` text (callers normalise like :func:`_read`; :func:`atomic_write` restores
+    CRLF). The marker lines and everything outside them stay as they are. Returns
+    ``(new text, changed)``; ``invalid_input`` showing the two marker lines when either is
+    missing.
+    """
+    lines = text.split("\n")
+    start = next((i for i, ln in enumerate(lines) if ln.strip() == STATUS_OPEN), None)
+    end = None
+    if start is not None:
+        end = next(
+            (i for i in range(start + 1, len(lines)) if lines[i].strip() == STATUS_CLOSE), None
+        )
+    if start is None or end is None:
+        raise SddError(
+            "invalid_input",
+            "CLAUDE.md needs the status markers, each on a line of its own:\n"
+            f"{STATUS_OPEN}\n{STATUS_CLOSE}",
+        )
+    new_lines = [*lines[: start + 1], *block.strip("\n").split("\n"), *lines[end:]]
+    new_text = "\n".join(new_lines)
+    return new_text, new_text != text
+
+
+def write_status_block(settings: Settings, block: str, rel: str = "CLAUDE.md") -> bool:
+    """Write ``block`` between the markers of the project's CLAUDE.md; ``True`` if it changed.
+
+    Re-reads the file right before writing: if it changed since the first read, nothing is
+    written and the error is ``source_changed``.
+    """
+    path = _abs(settings, rel)
+    if not path.is_file():
+        raise SddError(
+            "invalid_input",
+            f"No {rel} in the project. Create it with the markers, each on a line of its own:\n"
+            f"{STATUS_OPEN}\n{STATUS_CLOSE}",
+        )
+    before = path.read_bytes()
+    new_text, changed = replace_status_block(before.decode("utf-8").replace("\r\n", "\n"), block)
+    if not changed:
+        return False
+    if path.read_bytes() != before:
+        raise SddError("source_changed", f"{rel} changed while the status block was built; retry.")
+    atomic_write(path, new_text)
+    return True

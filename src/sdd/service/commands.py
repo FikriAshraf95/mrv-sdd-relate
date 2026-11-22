@@ -10,13 +10,15 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
 from sdd.config import Settings
 from sdd.errors import SddError
 from sdd.graph.store import Store
-from sdd.service import changes, context, coordination, impact, query_guard, remote
+from sdd.service import changes, context, coordination, exports, impact, query_guard, remote
+from sdd.service import snapshot as snapshot_service
 from sdd.service.runtime import Runtime
 
 __all__ = [
@@ -26,6 +28,10 @@ __all__ = [
     "deviation",
     "done",
     "explain",
+    "export_claude_status",
+    "export_cypher",
+    "export_json",
+    "export_mermaid",
     "find",
     "impact_of",
     "milestone_done",
@@ -33,6 +39,7 @@ __all__ = [
     "query",
     "release",
     "section",
+    "snapshot",
 ]
 
 
@@ -218,3 +225,31 @@ def milestone_done(
         return result
     with _local(settings, write=True) as runtime:
         return coordination.complete_milestone(runtime, milestone_id, agent, verification)
+
+
+# Exports and snapshots read the store files directly (SPEC-08 §1 rule 1): a read-only open works
+# beside a running daemon (O12), and there is no endpoint for a full dump.
+
+
+def export_mermaid(settings: Settings, argument: str) -> str:
+    with _local(settings, write=False) as runtime:
+        return exports.export_mermaid(runtime, argument)
+
+
+def export_cypher(settings: Settings) -> str:
+    with _local(settings, write=False) as runtime:
+        return exports.export_cypher(runtime)
+
+
+def export_json(settings: Settings) -> str:
+    with _local(settings, write=False) as runtime:
+        return exports.export_json(runtime)
+
+
+def export_claude_status(settings: Settings) -> dict[str, Any]:
+    with _local(settings, write=False) as runtime:
+        return exports.claude_status(runtime)
+
+
+def snapshot(settings: Settings, out: Path | None) -> dict[str, Any]:
+    return snapshot_service.snapshot(settings, out)

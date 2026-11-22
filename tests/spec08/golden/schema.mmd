@@ -1,0 +1,79 @@
+flowchart LR
+    n0["AcceptanceCheck (6)"]
+    n1["Column (6)"]
+    n2["Commit (5)"]
+    n3["Deviation (2)"]
+    n4["Doc (1)"]
+    n5["Domain (2)"]
+    n6["Feature (2)"]
+    n7["File (18)"]
+    n8["Folder (9)"]
+    n9["Meta (1)"]
+    n10["Milestone (2)"]
+    n11["Section (7)"]
+    n12["Spec (2)"]
+    n13["Table (2)"]
+    n14["Task (7)"]
+    n1 -->|"REFERENCES (1)"| n13
+    n2 -->|"CHANGED (22)"| n7
+    n2 -->|"COMPLETES (2)"| n14
+    n2 -->|"PARENT (4)"| n2
+    n2 -->|"PART_OF (1)"| n10
+    n3 -->|"AFFECTS (2)"| n7
+    n3 -->|"AFFECTS (1)"| n13
+    n3 -->|"AMENDS (3)"| n11
+    n3 -->|"MENTIONS (2)"| n7
+    n3 -->|"MENTIONS (1)"| n13
+    n3 -->|"RAISED_IN (2)"| n10
+    n3 -->|"RAISED_IN (2)"| n14
+    n6 -->|"BELONGS_TO (2)"| n5
+    n6 -->|"IMPLEMENTED_IN (5)"| n7
+    n6 -->|"SPECIFIED_BY (2)"| n12
+    n6 -->|"USES_TABLE (2)"| n13
+    n7 -->|"TESTS (3)"| n0
+    n8 -->|"CONTAINS (15)"| n7
+    n8 -->|"CONTAINS (6)"| n8
+    n10 -->|"DEPENDS_ON (1)"| n10
+    n10 -->|"INCLUDES (7)"| n14
+    n10 -->|"READS (4)"| n11
+    n11 -->|"DEFINES_TABLE (2)"| n13
+    n11 -->|"LINKS_TO (1)"| n3
+    n11 -->|"MENTIONS (1)"| n7
+    n12 -->|"HAS_CHECK (6)"| n0
+    n12 -->|"HAS_SECTION (7)"| n11
+    n13 -->|"HAS_COLUMN (6)"| n1
+    n14 -->|"BLOCKED_BY (4)"| n14
+    n14 -->|"GOVERNED_BY (4)"| n11
+    n14 -->|"MENTIONS (2)"| n13
+    n14 -->|"TOUCHES (2)"| n7
+    n14 -->|"VERIFIES (5)"| n0
+    classDef acceptancecheck fill:#38bdf8,stroke:#0ea5e9,color:#111
+    classDef column fill:#a3e635,stroke:#65a30d,color:#111
+    classDef commit fill:#facc15,stroke:#a16207,color:#111
+    classDef deviation fill:#f87171,stroke:#dc2626,color:#111
+    classDef doc fill:#c4b5fd,stroke:#8b5cf6,color:#111
+    classDef domain fill:#fb923c,stroke:#ea580c,color:#111
+    classDef feature fill:#f472b6,stroke:#db2777,color:#111
+    classDef file fill:#94a3b8,stroke:#64748b,color:#111
+    classDef folder fill:#94a3b8,stroke:#475569,color:#111
+    classDef meta fill:#cbd5e1,stroke:#64748b,color:#111
+    classDef milestone fill:#a78bfa,stroke:#7c3aed,color:#111
+    classDef section fill:#93c5fd,stroke:#60a5fa,color:#111
+    classDef spec fill:#60a5fa,stroke:#2563eb,color:#111
+    classDef table fill:#4ade80,stroke:#15803d,color:#111
+    classDef task fill:#2dd4bf,stroke:#0d9488,color:#111
+    class n0 acceptancecheck
+    class n1 column
+    class n2 commit
+    class n3 deviation
+    class n4 doc
+    class n5 domain
+    class n6 feature
+    class n7 file
+    class n8 folder
+    class n9 meta
+    class n10 milestone
+    class n11 section
+    class n12 spec
+    class n13 table
+    class n14 task

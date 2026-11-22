@@ -309,3 +309,22 @@ def test_named_query_files_reject_duplicates() -> None:
     text = "// name: a.b\nMATCH (n) RETURN n\n// name: a.b\nMATCH (m) RETURN m\n"
     with pytest.raises(ValueError, match="duplicate"):
         queries._parse(text, "x.cypher")
+
+
+def test_spec06_table_impact_reaches_commits(hist: Runtime) -> None:
+    """M06a.6: a Table's Tasks lead on to the Commits that COMPLETE them."""
+    r = impact.impact(hist, "documents")
+    (commit,) = r["groups"]["commits"]
+    assert commit["title"] == "feat: loader [M02.1]"
+    assert commit["via"][:5] == [
+        "table:documents",
+        "<-DEFINES_TABLE",
+        "SPEC-02#2",
+        "<-GOVERNED_BY",
+        "M02.1",
+    ]
+    assert commit["via"][5] == "<-COMPLETES"
+    assert r["counts"]["commits"] == 1
+    # columns run the table traversal, so they inherit the commit
+    col = impact.impact(hist, "documents.title")
+    assert [c["id"] for c in col["groups"]["commits"]] == [commit["id"]]

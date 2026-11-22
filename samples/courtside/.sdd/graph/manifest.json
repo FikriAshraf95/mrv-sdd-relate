@@ -1,0 +1,669 @@
+{
+  "format_version": 5,
+  "next_node_id": 282,
+  "next_rel_id": 798,
+  "checkpoint_lsn": 57,
+  "commit_ts": 79,
+  "node_parts": [
+    {
+      "path": "nodes/0-262144-59e293701b37a538f3cd36312e492b52.parquet",
+      "id_lo": 0,
+      "id_hi": 262144,
+      "rows": 282,
+      "bytes": 43330
+    }
+  ],
+  "rel_parts": [
+    {
+      "path": "relationships/0-262144-6bdff3b3442c438141298b24152ad6c4.parquet",
+      "id_lo": 0,
+      "id_hi": 262144,
+      "rows": 798,
+      "bytes": 12108
+    }
+  ],
+  "bytes_per_node": 153.18463425113094,
+  "bytes_per_rel": 15.164807862410223,
+  "codec": "parquet",
+  "indexes": [
+    {
+      "name": "ft_file_path",
+      "label": "File",
+      "property": "path#FULLTEXT#ft_file_path"
+    },
+    {
+      "name": "ft_section_text",
+      "label": "Section",
+      "property": "title,text#FULLTEXT#ft_section_text"
+    },
+    {
+      "name": "idx_event_at",
+      "label": "Event",
+      "property": "at"
+    },
+    {
+      "name": "idx_file_path",
+      "label": "File",
+      "property": "path"
+    },
+    {
+      "name": "idx_section_spec_id",
+      "label": "Section",
+      "property": "spec_id"
+    },
+    {
+      "name": "idx_task_milestone_id",
+      "label": "Task",
+      "property": "milestone_id"
+    },
+    {
+      "name": "idx_task_status",
+      "label": "Task",
+      "property": "status"
+    },
+    {
+      "name": "uniq_acceptancecheck_id",
+      "label": "AcceptanceCheck",
+      "property": "id#RANGE#uniq_acceptancecheck_id"
+    },
+    {
+      "name": "uniq_agent_id",
+      "label": "Agent",
+      "property": "id#RANGE#uniq_agent_id"
+    },
+    {
+      "name": "uniq_column_id",
+      "label": "Column",
+      "property": "id#RANGE#uniq_column_id"
+    },
+    {
+      "name": "uniq_commit_id",
+      "label": "Commit",
+      "property": "id#RANGE#uniq_commit_id"
+    },
+    {
+      "name": "uniq_deviation_id",
+      "label": "Deviation",
+      "property": "id#RANGE#uniq_deviation_id"
+    },
+    {
+      "name": "uniq_doc_id",
+      "label": "Doc",
+      "property": "id#RANGE#uniq_doc_id"
+    },
+    {
+      "name": "uniq_domain_id",
+      "label": "Domain",
+      "property": "id#RANGE#uniq_domain_id"
+    },
+    {
+      "name": "uniq_event_id",
+      "label": "Event",
+      "property": "id#RANGE#uniq_event_id"
+    },
+    {
+      "name": "uniq_feature_id",
+      "label": "Feature",
+      "property": "id#RANGE#uniq_feature_id"
+    },
+    {
+      "name": "uniq_file_id",
+      "label": "File",
+      "property": "id#RANGE#uniq_file_id"
+    },
+    {
+      "name": "uniq_folder_id",
+      "label": "Folder",
+      "property": "id#RANGE#uniq_folder_id"
+    },
+    {
+      "name": "uniq_meta_id",
+      "label": "Meta",
+      "property": "id#RANGE#uniq_meta_id"
+    },
+    {
+      "name": "uniq_milestone_id",
+      "label": "Milestone",
+      "property": "id#RANGE#uniq_milestone_id"
+    },
+    {
+      "name": "uniq_section_id",
+      "label": "Section",
+      "property": "id#RANGE#uniq_section_id"
+    },
+    {
+      "name": "uniq_spec_id",
+      "label": "Spec",
+      "property": "id#RANGE#uniq_spec_id"
+    },
+    {
+      "name": "uniq_table_id",
+      "label": "Table",
+      "property": "id#RANGE#uniq_table_id"
+    },
+    {
+      "name": "uniq_task_id",
+      "label": "Task",
+      "property": "id#RANGE#uniq_task_id"
+    }
+  ],
+  "constraints": [
+    {
+      "name": "uniq_acceptancecheck_id",
+      "relationship": false,
+      "label": "AcceptanceCheck",
+      "properties": [
+        "id"
+      ],
+      "kind": "unique",
+      "property_type": null
+    },
+    {
+      "name": "uniq_agent_id",
+      "relationship": false,
+      "label": "Agent",
+      "properties": [
+        "id"
+      ],
+      "kind": "unique",
+      "property_type": null
+    },
+    {
+      "name": "uniq_column_id",
+      "relationship": false,
+      "label": "Column",
+      "properties": [
+        "id"
+      ],
+      "kind": "unique",
+      "property_type": null
+    },
+    {
+      "name": "uniq_commit_id",
+      "relationship": false,
+      "label": "Commit",
+      "properties": [
+        "id"
+      ],
+      "kind": "unique",
+      "property_type": null
+    },
+    {
+      "name": "uniq_deviation_id",
+      "relationship": false,
+      "label": "Deviation",
+      "properties": [
+        "id"
+      ],
+      "kind": "unique",
+      "property_type": null
+    },
+    {
+      "name": "uniq_doc_id",
+      "relationship": false,
+      "label": "Doc",
+      "properties": [
+        "id"
+      ],
+      "kind": "unique",
+      "property_type": null
+    },
+    {
+      "name": "uniq_domain_id",
+      "relationship": false,
+      "label": "Domain",
+      "properties": [
+        "id"
+      ],
+      "kind": "unique",
+      "property_type": null
+    },
+    {
+      "name": "uniq_event_id",
+      "relationship": false,
+      "label": "Event",
+      "properties": [
+        "id"
+      ],
+      "kind": "unique",
+      "property_type": null
+    },
+    {
+      "name": "uniq_feature_id",
+      "relationship": false,
+      "label": "Feature",
+      "properties": [
+        "id"
+      ],
+      "kind": "unique",
+      "property_type": null
+    },
+    {
+      "name": "uniq_file_id",
+      "relationship": false,
+      "label": "File",
+      "properties": [
+        "id"
+      ],
+      "kind": "unique",
+      "property_type": null
+    },
+    {
+      "name": "uniq_folder_id",
+      "relationship": false,
+      "label": "Folder",
+      "properties": [
+        "id"
+      ],
+      "kind": "unique",
+      "property_type": null
+    },
+    {
+      "name": "uniq_meta_id",
+      "relationship": false,
+      "label": "Meta",
+      "properties": [
+        "id"
+      ],
+      "kind": "unique",
+      "property_type": null
+    },
+    {
+      "name": "uniq_milestone_id",
+      "relationship": false,
+      "label": "Milestone",
+      "properties": [
+        "id"
+      ],
+      "kind": "unique",
+      "property_type": null
+    },
+    {
+      "name": "uniq_section_id",
+      "relationship": false,
+      "label": "Section",
+      "properties": [
+        "id"
+      ],
+      "kind": "unique",
+      "property_type": null
+    },
+    {
+      "name": "uniq_spec_id",
+      "relationship": false,
+      "label": "Spec",
+      "properties": [
+        "id"
+      ],
+      "kind": "unique",
+      "property_type": null
+    },
+    {
+      "name": "uniq_table_id",
+      "relationship": false,
+      "label": "Table",
+      "properties": [
+        "id"
+      ],
+      "kind": "unique",
+      "property_type": null
+    },
+    {
+      "name": "uniq_task_id",
+      "relationship": false,
+      "label": "Task",
+      "properties": [
+        "id"
+      ],
+      "kind": "unique",
+      "property_type": null
+    }
+  ],
+  "theater": {
+    "databases": {
+      "neo4j": [
+        25,
+        false
+      ],
+      "system": [
+        25,
+        false
+      ],
+      "system_ontologies": [
+        25,
+        false
+      ]
+    },
+    "index_details": {
+      "ft_file_path": {
+        "kind": "Fulltext",
+        "relationship": false,
+        "labels": [
+          "File"
+        ],
+        "properties": [
+          "path"
+        ],
+        "with_properties": []
+      },
+      "ft_section_text": {
+        "kind": "Fulltext",
+        "relationship": false,
+        "labels": [
+          "Section"
+        ],
+        "properties": [
+          "title",
+          "text"
+        ],
+        "with_properties": []
+      },
+      "idx_event_at": {
+        "kind": "Range",
+        "relationship": false,
+        "labels": [
+          "Event"
+        ],
+        "properties": [
+          "at"
+        ],
+        "with_properties": []
+      },
+      "idx_file_path": {
+        "kind": "Range",
+        "relationship": false,
+        "labels": [
+          "File"
+        ],
+        "properties": [
+          "path"
+        ],
+        "with_properties": []
+      },
+      "idx_section_spec_id": {
+        "kind": "Range",
+        "relationship": false,
+        "labels": [
+          "Section"
+        ],
+        "properties": [
+          "spec_id"
+        ],
+        "with_properties": []
+      },
+      "idx_task_milestone_id": {
+        "kind": "Range",
+        "relationship": false,
+        "labels": [
+          "Task"
+        ],
+        "properties": [
+          "milestone_id"
+        ],
+        "with_properties": []
+      },
+      "idx_task_status": {
+        "kind": "Range",
+        "relationship": false,
+        "labels": [
+          "Task"
+        ],
+        "properties": [
+          "status"
+        ],
+        "with_properties": []
+      },
+      "uniq_acceptancecheck_id": {
+        "kind": "Range",
+        "relationship": false,
+        "labels": [
+          "AcceptanceCheck"
+        ],
+        "properties": [
+          "id"
+        ],
+        "with_properties": []
+      },
+      "uniq_agent_id": {
+        "kind": "Range",
+        "relationship": false,
+        "labels": [
+          "Agent"
+        ],
+        "properties": [
+          "id"
+        ],
+        "with_properties": []
+      },
+      "uniq_column_id": {
+        "kind": "Range",
+        "relationship": false,
+        "labels": [
+          "Column"
+        ],
+        "properties": [
+          "id"
+        ],
+        "with_properties": []
+      },
+      "uniq_commit_id": {
+        "kind": "Range",
+        "relationship": false,
+        "labels": [
+          "Commit"
+        ],
+        "properties": [
+          "id"
+        ],
+        "with_properties": []
+      },
+      "uniq_deviation_id": {
+        "kind": "Range",
+        "relationship": false,
+        "labels": [
+          "Deviation"
+        ],
+        "properties": [
+          "id"
+        ],
+        "with_properties": []
+      },
+      "uniq_doc_id": {
+        "kind": "Range",
+        "relationship": false,
+        "labels": [
+          "Doc"
+        ],
+        "properties": [
+          "id"
+        ],
+        "with_properties": []
+      },
+      "uniq_domain_id": {
+        "kind": "Range",
+        "relationship": false,
+        "labels": [
+          "Domain"
+        ],
+        "properties": [
+          "id"
+        ],
+        "with_properties": []
+      },
+      "uniq_event_id": {
+        "kind": "Range",
+        "relationship": false,
+        "labels": [
+          "Event"
+        ],
+        "properties": [
+          "id"
+        ],
+        "with_properties": []
+      },
+      "uniq_feature_id": {
+        "kind": "Range",
+        "relationship": false,
+        "labels": [
+          "Feature"
+        ],
+        "properties": [
+          "id"
+        ],
+        "with_properties": []
+      },
+      "uniq_file_id": {
+        "kind": "Range",
+        "relationship": false,
+        "labels": [
+          "File"
+        ],
+        "properties": [
+          "id"
+        ],
+        "with_properties": []
+      },
+      "uniq_folder_id": {
+        "kind": "Range",
+        "relationship": false,
+        "labels": [
+          "Folder"
+        ],
+        "properties": [
+          "id"
+        ],
+        "with_properties": []
+      },
+      "uniq_meta_id": {
+        "kind": "Range",
+        "relationship": false,
+        "labels": [
+          "Meta"
+        ],
+        "properties": [
+          "id"
+        ],
+        "with_properties": []
+      },
+      "uniq_milestone_id": {
+        "kind": "Range",
+        "relationship": false,
+        "labels": [
+          "Milestone"
+        ],
+        "properties": [
+          "id"
+        ],
+        "with_properties": []
+      },
+      "uniq_section_id": {
+        "kind": "Range",
+        "relationship": false,
+        "labels": [
+          "Section"
+        ],
+        "properties": [
+          "id"
+        ],
+        "with_properties": []
+      },
+      "uniq_spec_id": {
+        "kind": "Range",
+        "relationship": false,
+        "labels": [
+          "Spec"
+        ],
+        "properties": [
+          "id"
+        ],
+        "with_properties": []
+      },
+      "uniq_table_id": {
+        "kind": "Range",
+        "relationship": false,
+        "labels": [
+          "Table"
+        ],
+        "properties": [
+          "id"
+        ],
+        "with_properties": []
+      },
+      "uniq_task_id": {
+        "kind": "Range",
+        "relationship": false,
+        "labels": [
+          "Task"
+        ],
+        "properties": [
+          "id"
+        ],
+        "with_properties": []
+      }
+    },
+    "index_options": {
+      "ft_file_path": {
+        "indexConfig": {
+          "t": "map",
+          "v": {
+            "fulltext.analyzer": {
+              "t": "string",
+              "v": "standard-no-stop-words"
+            },
+            "fulltext.eventually_consistent": {
+              "t": "bool",
+              "v": false
+            }
+          }
+        }
+      },
+      "ft_section_text": {
+        "indexConfig": {
+          "t": "map",
+          "v": {
+            "fulltext.analyzer": {
+              "t": "string",
+              "v": "standard-no-stop-words"
+            },
+            "fulltext.eventually_consistent": {
+              "t": "bool",
+              "v": false
+            }
+          }
+        }
+      },
+      "idx_event_at": {},
+      "idx_file_path": {},
+      "idx_section_spec_id": {},
+      "idx_task_milestone_id": {},
+      "idx_task_status": {},
+      "uniq_acceptancecheck_id": {},
+      "uniq_agent_id": {},
+      "uniq_column_id": {},
+      "uniq_commit_id": {},
+      "uniq_deviation_id": {},
+      "uniq_doc_id": {},
+      "uniq_domain_id": {},
+      "uniq_event_id": {},
+      "uniq_feature_id": {},
+      "uniq_file_id": {},
+      "uniq_folder_id": {},
+      "uniq_meta_id": {},
+      "uniq_milestone_id": {},
+      "uniq_section_id": {},
+      "uniq_spec_id": {},
+      "uniq_table_id": {},
+      "uniq_task_id": {}
+    },
+    "graph_types": {},
+    "current_graph_type": {
+      "node_types": [],
+      "edge_types": [],
+      "constraints": [],
+      "drop_constraint_names": []
+    },
+    "derived_constraints": {}
+  },
+  "query_engine": "in-memory",
+  "write_engine": "local"
+}

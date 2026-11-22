@@ -1,0 +1,59 @@
+flowchart LR
+    n0[("table:documents: documents")]
+    n1["SPEC-02#ac1"]
+    n2["SPEC-02#ac2"]
+    n3["SPEC-02#ac3"]
+    n4["column:chunks.document_id: document_id"]
+    n5["column:documents.created_at: created_at"]
+    n6["column:documents.id: id"]
+    n7["column:documents.title: title"]
+    n8["d1e8577: feat: loader [M02.1]"]
+    n9{{"D002: Document titles may be empty"}}
+    n10>"feature:ingestion: Ingestion"]
+    n11[/"file:src/ingest/__init__.py: __init__.py"/]
+    n12[/"file:src/ingest/chunker.py: chunker.py"/]
+    n13[/"file:src/ingest/loader.py: loader.py"/]
+    n14[/"file:tests/test_ingest.py: test_ingest.py"/]
+    n15["SPEC-02#2: documents"]
+    n16[["SPEC-02: Ingestion schema"]]
+    n17[("table:chunks: chunks")]
+    n18("M02.1: Loader that stores `documents` (SPEC-02 §2)")
+    n0 -->|HAS_COLUMN| n5
+    n0 -->|HAS_COLUMN| n6
+    n0 -->|HAS_COLUMN| n7
+    n4 -->|REFERENCES| n0
+    n8 -->|COMPLETES| n18
+    n9 -->|AFFECTS| n0
+    n10 -->|IMPLEMENTED_IN| n11
+    n10 -->|IMPLEMENTED_IN| n12
+    n10 -->|IMPLEMENTED_IN| n13
+    n10 -->|USES_TABLE| n0
+    n14 -->|TESTS| n1
+    n15 -->|DEFINES_TABLE| n0
+    n16 -->|HAS_CHECK| n1
+    n16 -->|HAS_CHECK| n2
+    n16 -->|HAS_CHECK| n3
+    n16 -->|HAS_SECTION| n15
+    n17 -->|HAS_COLUMN| n4
+    n18 -->|GOVERNED_BY| n15
+    n18 -->|MENTIONS| n0
+    classDef acceptancecheck fill:#38bdf8,stroke:#0ea5e9,color:#111
+    classDef column fill:#a3e635,stroke:#65a30d,color:#111
+    classDef commit fill:#facc15,stroke:#a16207,color:#111
+    classDef deviation fill:#f87171,stroke:#dc2626,color:#111
+    classDef feature fill:#f472b6,stroke:#db2777,color:#111
+    classDef file fill:#94a3b8,stroke:#64748b,color:#111
+    classDef section fill:#93c5fd,stroke:#60a5fa,color:#111
+    classDef spec fill:#60a5fa,stroke:#2563eb,color:#111
+    classDef table fill:#4ade80,stroke:#15803d,color:#111
+    classDef task fill:#2dd4bf,stroke:#0d9488,color:#111
+    class n1,n2,n3 acceptancecheck
+    class n4,n5,n6,n7 column
+    class n8 commit
+    class n9 deviation
+    class n10 feature
+    class n11,n12,n13,n14 file
+    class n15 section
+    class n16 spec
+    class n0,n17 table
+    class n18 task

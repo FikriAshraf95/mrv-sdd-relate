@@ -1,6 +1,6 @@
 # M06b — Public mode, replay and home deploy
 
-> **Depends on:** [M06a](M06a-sample-and-exports.md) · **Blocks:** [M07](M07-benchmark.md), [M08](M08-static-demo.md)
+> **Depends on:** [M06a](done/M06a-sample-and-exports.md) · **Blocks:** [M07](M07-benchmark.md), [M08](M08-static-demo.md)
 > **Read first:** [SPEC-11 §2–4, §7, §9](../specs/SPEC-11-deployment-and-demo.md#2-compose) · [SPEC-09 §4–5](../specs/SPEC-09-security.md#4-public-mode) · [SPEC-07 §2–3](../specs/SPEC-07-dashboard-and-api.md#2-endpoint-index) · [SPEC-01 §1](../specs/SPEC-01-architecture.md#1-process-model) rule 4
 > **Model:** Opusplan. The public/replay process split, snapshot reopening and the hosting security rules. Write `M06b-plan.md` first.
 > **Split from:** M06 (2026-11-21)

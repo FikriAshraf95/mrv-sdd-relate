@@ -1,4 +1,4 @@
-"""The JSON API (SPEC-07 §2): endpoints 1–14, 16–19 and 21, and ``/mcp``.
+"""The JSON API (SPEC-07 §2): endpoints 1–19 and 21, and ``/mcp``.
 
 Each handler validates its input, calls one ``service/`` function and returns its JSON. Read
 handlers are plain ``def`` functions, which Starlette runs in its thread pool, so a blocking store
@@ -24,7 +24,7 @@ from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
 from sdd.errors import SddError
-from sdd.service import api_views, changes, context, coordination, impact, query_guard
+from sdd.service import api_views, changes, context, coordination, exports, impact, query_guard
 from sdd.service.runtime import Runtime
 from sdd.web import sse
 from sdd.web.errors import HTTP_STATUS, error_response
@@ -87,7 +87,9 @@ def _bool(data: dict[str, Any], name: str) -> bool:
     return value
 
 
-def create_app(runtime: Runtime, *, mcp_app: Starlette | None = None) -> Starlette:
+def create_app(  # noqa: PLR0915 - one flat closure per endpoint
+    runtime: Runtime, *, mcp_app: Starlette | None = None
+) -> Starlette:
     def health(request: Request) -> Response:
         return JSONResponse(api_views.health(runtime))
 
@@ -169,6 +171,14 @@ def create_app(runtime: Runtime, *, mcp_app: Starlette | None = None) -> Starlet
 
     def preset_graph(request: Request) -> Response:
         return JSONResponse(impact.preset(runtime, request.path_params["name"]))
+
+    def mermaid(request: Request) -> Response:
+        # presets only, never Cypher: safe in public mode too (SPEC-07 endpoint 15)
+        name = request.query_params.get("preset", "").strip()
+        if not name:
+            raise SddError("invalid_input", "preset is required, e.g. ?preset=schema.")
+        text = exports.render_mermaid(impact.preset(runtime, name))
+        return Response(text, media_type="text/plain; charset=utf-8")
 
     async def query(request: Request) -> Response:
         data = await _body(request)
@@ -258,6 +268,7 @@ def create_app(runtime: Runtime, *, mcp_app: Starlette | None = None) -> Starlet
         Route("/api/changes", what_changed, methods=["GET"]),
         Route("/api/presets", preset_list, methods=["GET"]),
         Route("/api/presets/{name:path}", preset_graph, methods=["GET"]),
+        Route("/api/mermaid", mermaid, methods=["GET"]),
         Route("/api/query", query, methods=["POST"]),
         Route("/api/events", sse.events(runtime), methods=["GET"]),
         Route("/api/tasks/{id}/claim", writer(claim), methods=["POST"]),

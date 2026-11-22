@@ -59,6 +59,11 @@ MATCH (t:Table {id: $id})<-[:MENTIONS]-(s:Section)<-[:GOVERNED_BY]-(x:Task)
 RETURN x.id AS id, labels(x)[0] AS label, coalesce(x.title, x.name, x.path, x.message, x.id) AS title, x.status AS status,
        [t.id, '<-MENTIONS', s.id, '<-GOVERNED_BY', x.id] AS via
 
+// name: impact.table.commits
+MATCH (t:Table {id: $id})<-[r:DEFINES_TABLE|MENTIONS]-(s:Section)<-[:GOVERNED_BY]-(k:Task)<-[:COMPLETES]-(x:Commit)
+RETURN x.id AS id, labels(x)[0] AS label, coalesce(x.title, x.name, x.path, x.message, x.id) AS title, x.status AS status,
+       [t.id, '<-' + type(r), s.id, '<-GOVERNED_BY', k.id, '<-COMPLETES', x.id] AS via
+
 // name: impact.table.deviations_affects
 MATCH (t:Table {id: $id})<-[:AFFECTS]-(x:Deviation)
 RETURN x.id AS id, labels(x)[0] AS label, coalesce(x.title, x.name, x.path, x.message, x.id) AS title, x.status AS status,

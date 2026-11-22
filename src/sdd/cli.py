@@ -812,3 +812,92 @@ def init(
         typer.echo(f"detected  {key} = {', '.join(globs)}")
     typer.echo("\nAdd this to CLAUDE.md:\n")
     typer.echo(result["snippet"])
+
+
+# ---------------------------------------------------------------- exports and snapshots (M06a)
+
+
+def _write_out(text: str, out: Path | None) -> None:
+    """Print ``text`` (stdout) or write it to ``out`` (UTF-8, LF line endings)."""
+    if out is None:
+        typer.echo(text, nl=False)
+        return
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", encoding="utf-8", newline="\n") as handle:
+        handle.write(text)
+    typer.echo(f"wrote {out}")
+
+
+@app.command("export")
+def export(
+    ctx: typer.Context,
+    mermaid: Annotated[
+        str | None,
+        typer.Option("--mermaid", help="A preset name (schema, impact:T, …) or a Cypher query."),
+    ] = None,
+    cypher: Annotated[
+        bool, typer.Option("--cypher", help="The whole graph as an idempotent Cypher script.")
+    ] = False,
+    as_graph_json: Annotated[
+        bool, typer.Option("--json", help="The whole graph as {nodes, edges} JSON.")
+    ] = False,
+    claude_status: Annotated[
+        bool, typer.Option("--claude-status", help="Rewrite the status block of CLAUDE.md.")
+    ] = False,
+    out: Annotated[
+        Path | None, typer.Option("--out", help="Write to this file (default: stdout).")
+    ] = None,
+    project: ProjectOpt = None,
+    store: StoreOpt = None,
+) -> None:
+    """Export the graph: Mermaid, Cypher script, JSON, or the CLAUDE.md status block."""
+    # here --json names the export format; the global --json (before the command) still works
+    settings, use_json = resolve(ctx, project, store, False)
+    modes = [mermaid is not None, cypher, as_graph_json, claude_status]
+    if sum(modes) != 1:
+        fail(
+            SddError(
+                "invalid_input",
+                "Give exactly one of --mermaid, --cypher, --json or --claude-status.",
+            ),
+            use_json,
+        )
+    try:
+        if claude_status:
+            status_result = commands.export_claude_status(settings)
+            if use_json:
+                emit(status_result)
+            else:
+                state = "updated" if status_result["changed"] else "already up to date"
+                typer.echo(f"{status_result['path']} {state}")
+        elif mermaid is not None:
+            _write_out(commands.export_mermaid(settings, mermaid), out)
+        elif cypher:
+            _write_out(commands.export_cypher(settings), out)
+        else:
+            _write_out(commands.export_json(settings), out)
+    except SddError as err:
+        fail(err, use_json)
+
+
+@app.command()
+def snapshot(
+    ctx: typer.Context,
+    out: Annotated[
+        Path | None, typer.Option("--out", help="Output folder (default .sdd/snapshots).")
+    ] = None,
+    project: ProjectOpt = None,
+    store: StoreOpt = None,
+    as_json: JsonOpt = False,
+) -> None:
+    """Checkpoint, then write the committed copies: graph/, graph.rl and graph-json/."""
+    settings, use_json = resolve(ctx, project, store, as_json)
+    result = _run(use_json, lambda: commands.snapshot(settings, out))
+    if use_json:
+        return
+    for name, state in result["copies"].items():
+        typer.echo(f"{name:<11}{state}")
+    typer.echo(f"out        {result['out']}")
+    typer.echo(f"{result['total_nodes']} nodes, {result['total_relationships']} relationships")
+    if not result["relate_cli"]:
+        typer.echo("the relate CLI is not on PATH: graph.rl and graph-json were skipped")

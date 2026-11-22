@@ -21,7 +21,7 @@
 
 | Target | Follows |
 |---|---|
-| Table | its Columns · Columns elsewhere that `REFERENCES` it (dependent tables) · the defining Section and its Spec · Sections, Tasks and Deviations that `MENTIONS` it or `LINKS_TO` the defining section · Features that `USES_TABLE` it → their Files and Specs · Tasks `GOVERNED_BY` those sections · Deviations that `AMENDS` those sections or `AFFECTS` the table · Tests of the defining spec's checks |
+| Table | its Columns · Columns elsewhere that `REFERENCES` it (dependent tables) · the defining Section and its Spec · Sections, Tasks and Deviations that `MENTIONS` it or `LINKS_TO` the defining section · Features that `USES_TABLE` it → their Files and Specs · Tasks `GOVERNED_BY` those sections · Commits that `COMPLETES` those Tasks (so the centrepiece table reaches every group) · Deviations that `AMENDS` those sections or `AFFECTS` the table · Tests of the defining spec's checks |
 | Column | as Table, starting from its table, plus Columns that reference the same table |
 | Section | child Sections · Sections that `LINKS_TO` it · Milestones that `READS` it · Tasks `GOVERNED_BY` it, open and done · Deviations that `AMENDS` it · Tables it defines or mentions · Features of its Spec → Files · Checks of its Spec → test Files |
 | Spec | as Section, for every section of the spec |

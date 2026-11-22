@@ -20,6 +20,9 @@ Shape, decided by the M00b experiments (SPEC-00 §8, O5 and O10–O12):
   read-only mount, but need the ``.cypherlite.lock`` markers (root and ``wal/``).
   :meth:`Store.read_snapshot` opens a fresh read-only connection on the *calling* thread for
   each guarded query, so those never wait behind the write queue.
+* **Copies (O3).** The Python package cannot copy or convert a store; the ``relate`` CLI can
+  (:func:`clone`: directory, single-file ``.rl``, readable JSON codec), beside a running writer.
+  This module is the only one that runs it, so every Relate access stays behind this door.
 """
 
 from __future__ import annotations
@@ -27,6 +30,8 @@ from __future__ import annotations
 import contextlib
 import json
 import queue
+import shutil
+import subprocess
 import threading
 import time
 from collections.abc import Callable, Mapping
@@ -124,11 +129,64 @@ def _translate(exc: BaseException, path: str) -> BaseException:
 
 
 def exists(path: str | Path) -> bool:
-    """Whether ``path`` holds a directory store (``:memory:`` always 'exists')."""
+    """Whether ``path`` holds a store: a directory, or a single-file ``.rl`` bundle (``:memory:``
+    always 'exists')."""
     if str(path) == MEMORY:
         return True
     root = Path(path)
+    if root.suffix == ".rl" and root.is_file():
+        return True
     return (root / LOCK_MARKERS[0]).is_file() or (root / "manifest.json").is_file()
+
+
+WRITER_MARKER = ".cypherlite.writer"
+CLONE_TIMEOUT = 120.0
+
+
+def relate_cli() -> str | None:
+    """The ``relate`` command-line tool on PATH (the dev image has it, the runtime image not)."""
+    return shutil.which("relate")
+
+
+def clone(src: str | Path, dest: Path, *, codec: Literal["json"] | None = None) -> None:
+    """Copy the store ``src`` to ``dest`` with ``relate clone`` (O3), then drop writer markers.
+
+    ``dest`` ending in ``.rl`` is a single-file bundle; ``codec="json"`` writes a directory
+    with a readable ``graph.json``; otherwise a plain directory copy. Works beside a running
+    writer: the clone holds everything committed when it opened. The ``.cypherlite.lock``
+    markers stay (a read-only open needs them, D001); ``.cypherlite.writer`` files go.
+    """
+    exe = relate_cli()
+    if exe is None:
+        raise SddError("invalid_input", "The relate command-line tool is not on PATH.")
+    command = [exe, "clone"]
+    if codec == "json":
+        command += ["--to-snapshot-format", "json"]
+    command += [str(src), str(dest)]
+    try:
+        result = subprocess.run(
+            command, check=False, capture_output=True, text=True, timeout=CLONE_TIMEOUT
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise SddError("invalid_input", f"relate clone failed: {exc}") from None
+    if result.returncode != 0:
+        raise SddError(
+            "invalid_input",
+            f"relate clone {src} {dest} failed: {(result.stderr or result.stdout).strip()}",
+        )
+    _drop_writer_markers(dest)
+
+
+def copy_store(src: str | Path, dest: Path) -> None:
+    """Copy a directory store without ``.cypherlite.writer`` (for a caller that holds the
+    writer itself and has no ``relate`` CLI)."""
+    shutil.copytree(src, dest, ignore=shutil.ignore_patterns(WRITER_MARKER))
+
+
+def _drop_writer_markers(dest: Path) -> None:
+    if dest.is_dir():
+        for marker in dest.rglob(WRITER_MARKER):
+            marker.unlink()
 
 
 # ---------------------------------------------------------------- jobs

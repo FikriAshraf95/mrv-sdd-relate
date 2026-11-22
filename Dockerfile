@@ -60,7 +60,7 @@ RUN apt-get update \
     && useradd --uid 10001 --create-home --shell /usr/sbin/nologin sdd
 COPY --from=build /opt/venv /opt/venv
 COPY src /app/src
-# samples/ is added here by M06a (SPEC-11 §3).
+COPY samples /app/samples
 ENV PATH=/opt/venv/bin:$PATH \
     PYTHONUNBUFFERED=1
 WORKDIR /app

@@ -80,6 +80,7 @@ TABLE_STEPS: list[Step] = [
     ("impact.table.feature_specs", None),
     ("impact.table.tasks_by_defining_section", None),
     ("impact.table.tasks_by_mentioning_section", None),
+    ("impact.table.commits", None),
     ("impact.table.deviations_amending_defining", None),
     ("impact.table.deviations_amending_mentioning", None),
     ("impact.table.checks", None),
@@ -815,8 +816,10 @@ def _chain_graph(
         for row in queries.run(store, "presets.nodes", ids=ordered[start : start + 500]):
             node = shape_node(str(row["label"]), row["p"])
             nodes[node["id"]] = node
+    # the root (the first ``extra`` ID) comes first, so exports can start from it
+    roots = [i for i in list(extra)[:1] if i in nodes]
     return {
-        "nodes": [nodes[i] for i in sorted(nodes)],
+        "nodes": [nodes[i] for i in [*roots, *(i for i in sorted(nodes) if i not in roots)]],
         "edges": [
             {"source": s, "target": t, "type": ty}
             for s, ty, t in sorted(edges)

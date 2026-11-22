@@ -29,7 +29,7 @@
 | 12 | `GET /api/changes?since=&agent=` | ✓ | as MCP `what_changed` |
 | 13 | `GET /api/presets` · `GET /api/presets/{name}` | ✓ | preset list `[{name, params, description}]` ([SPEC-06 §5](SPEC-06-code-context.md#5-presets)); one preset as graph JSON `{nodes, edges}` (`name` percent-encoded, e.g. `impact%3Adocuments`) |
 | 14 | `POST /api/query` `{cypher, params}` | ✓ (guarded, may be preset-only) | `{columns, rows, truncated}` |
-| 15 | `GET /api/mermaid?preset=` | ✓ | `text/plain` Mermaid ([SPEC-08 §3](SPEC-08-cli-and-exports.md#3-exports-and-snapshots)) |
+| 15 | `GET /api/mermaid?preset=` | ✓ | `text/plain; charset=utf-8` Mermaid of one preset ([SPEC-08 §3](SPEC-08-cli-and-exports.md#3-exports-and-snapshots)); presets only, never Cypher, so it is safe in public mode. `invalid_input` (400) without `preset`, `node_not_found` (404) for an unknown preset |
 | 16 | `GET /api/events` | ✓ | SSE stream ([§3](#3-live-events)) |
 | 17 | `POST /api/tasks/{id}/claim` · `/release` · `/complete` | ✗ | as the MCP write tools (used by the CLI and replay) |
 | 18 | `POST /api/deviations` · `POST /api/milestones/{id}/complete` | ✗ | as the MCP write tools |

@@ -25,8 +25,6 @@ SPECS = Path(__file__).resolve().parents[2] / "docs" / "specs"
 PENDING_TOOLS: dict[str, str] = {}
 PENDING_COMMANDS = {
     "public": "M06b",
-    "export": "M06a",
-    "snapshot": "M06a",
     "bench": "M07",
     "demo": "M06b",
 }
