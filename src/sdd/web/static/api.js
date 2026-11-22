@@ -2,8 +2,32 @@
 // static and WASM backends (M08) implement the same functions.
 
 const enc = encodeURIComponent;
+let targetsCache = null;
 
-async function request(path, options) {
+// SDD_TOKEN (SPEC-09 §2 rule 2): kept in sessionStorage only (this tab, gone when it closes), sent
+// as a header, never in a URL or cookie. Storage can be blocked, so every access is guarded.
+const TOKEN_KEY = "sdd-token";
+export function getToken() {
+  try {
+    return sessionStorage.getItem(TOKEN_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+export function setToken(token) {
+  try {
+    if (token) sessionStorage.setItem(TOKEN_KEY, token);
+    else sessionStorage.removeItem(TOKEN_KEY);
+  } catch {
+    /* storage blocked: the token lasts until the next 401 */
+  }
+}
+const unauthorizedHandlers = [];
+export const onUnauthorized = (fn) => unauthorizedHandlers.push(fn);
+
+async function request(path, options = {}) {
+  const token = getToken();
+  if (token) options = { ...options, headers: { ...options.headers, Authorization: `Bearer ${token}` } };
   const res = await fetch(path, options);
   let body = null;
   try {
@@ -15,6 +39,8 @@ async function request(path, options) {
     const e = (body && body.error) || {};
     const err = new Error(e.message || `HTTP ${res.status}`);
     err.code = e.code || `http_${res.status}`;
+    err.details = e.details || {};
+    if (res.status === 401) for (const fn of unauthorizedHandlers) fn();
     throw err;
   }
   return body;
@@ -35,6 +61,18 @@ export const api = {
   graph: ({ labels = [], focus, depth = 1, limit = 300 } = {}) =>
     request(`/api/graph${qs({ labels: labels.join(","), focus, depth, limit })}`),
   node: (id) => request(`/api/nodes/${enc(id)}`),
+  impact: (target, depth = 3) => request(`/api/impact${qs({ target, depth })}`),
+  explain: (path) => request(`/api/explain${qs({ path })}`),
+  // IDs for the autocomplete and the file tree: one call per kind of target, cached.
+  async targets() {
+    if (!targetsCache) {
+      targetsCache = request(
+        `/api/graph${qs({ labels: "Table,Feature,File,Section", limit: 2000 })}`,
+      ).then((g) => g.nodes.map((n) => ({ id: n.id, label: n.label, title: n.title })));
+      targetsCache.catch(() => (targetsCache = null));
+    }
+    return targetsCache;
+  },
   presets: () => request("/api/presets"),
   preset: (name) => request(`/api/presets/${enc(name)}`),
   query: (cypher, params = {}) =>
@@ -46,7 +84,8 @@ export const api = {
 
   // Live events: returns a close function. `onState(true|false)` reports whether the stream is up.
   events(onEvent, onState) {
-    if (typeof EventSource === "undefined") {
+    // EventSource cannot send headers: with a token the Board uses its polling fallback.
+    if (typeof EventSource === "undefined" || getToken()) {
       onState(false);
       return () => {};
     }

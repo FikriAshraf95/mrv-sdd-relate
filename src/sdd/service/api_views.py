@@ -45,6 +45,7 @@ def health(runtime: Runtime) -> dict[str, Any]:
         "schema_version": schema.SCHEMA_VERSION,
         "instance": runtime.instance,
         "project": runtime.settings.project_root.name,
+        "public_query": runtime.settings.public_query,
     }
 
 

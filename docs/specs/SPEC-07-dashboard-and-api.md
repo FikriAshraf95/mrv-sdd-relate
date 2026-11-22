@@ -15,7 +15,7 @@
 
 | # | Method + path | Public | Returns |
 |---|---|---|---|
-| 1 | `GET /api/health` | ✓ | `{ok, mode: "daemon"\|"public", synced_at, schema_version, instance, project}`. `instance` is a random ID per daemon start, also in `daemon.json`, so the CLI knows the answer comes from this project's daemon ([SPEC-01 §5](SPEC-01-architecture.md#5-daemon-lifecycle) step 1) |
+| 1 | `GET /api/health` | ✓ | `{ok, mode: "daemon"\|"public", synced_at, schema_version, instance, project, public_query: "guarded"\|"presets"}`. `public_query` is `SDD_PUBLIC_QUERY`; the Query view reads it to become presets-only. `instance` is a random ID per daemon start, also in `daemon.json`, so the CLI knows the answer comes from this project's daemon ([SPEC-01 §5](SPEC-01-architecture.md#5-daemon-lifecycle) step 1) |
 | 2 | `GET /api/status?agent=` | ✓ | as MCP `status` |
 | 3 | `GET /api/graph?labels=&focus=&depth=1&limit=300` | ✓ | `{nodes: [{id, label, title, props}], edges: [{source, target, type}]}`; `focus` expands around one node |
 | 4 | `GET /api/nodes/{id}` | ✓ | one node with all properties and its relationships grouped by type |

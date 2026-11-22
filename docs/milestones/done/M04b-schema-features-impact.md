@@ -1,6 +1,6 @@
 # M04b — Schema tables, features and impact
 
-> **Depends on:** [M04a](M04a-code-and-git.md) · **Blocks:** [M05b](../M05b-dashboard-impact-explain.md), [M06a](../M06a-sample-and-exports.md)
+> **Depends on:** [M04a](M04a-code-and-git.md) · **Blocks:** [M05b](M05b-dashboard-impact-explain.md), [M06a](../M06a-sample-and-exports.md)
 > **Read first:** [SPEC-06 (whole file)](../../specs/SPEC-06-code-context.md) · [SPEC-03 §3.3, §5.1, §6](../../specs/SPEC-03-markdown-parsing.md#33-feature-line) · [SPEC-02 §3–4](../../specs/SPEC-02-graph-schema.md#3-codebase-layer) · [SPEC-05 §4](../../specs/SPEC-05-agent-tools.md#4-get_context)
 > **Model:** Opusplan. Glob expansion and the fixed traversals with `via` chains. Write `M04b-plan.md` first.
 > **Split from:** M04 (2026-11-21)

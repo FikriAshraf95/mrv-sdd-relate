@@ -1,6 +1,8 @@
 // Query: a read-only Cypher box, example queries, a results table and "Show as graph".
 import { api } from "./api.js";
-import { css, h, labelColor } from "./dom.js";
+import { cyStyle, elementsOf } from "./cystyle.js";
+import { h } from "./dom.js";
+import { picker } from "./presets.js";
 
 const EXAMPLES = [
   ["Open tasks", "MATCH (t:Task) WHERE t.status <> 'done' RETURN t.id AS id, t.title AS title, t.status AS status ORDER BY id LIMIT 50"],
@@ -9,11 +11,6 @@ const EXAMPLES = [
   ["Tasks with their milestone", "MATCH (m:Milestone)-[r:INCLUDES]->(t:Task) RETURN m, r, t LIMIT 40"],
   ["Spec sections", "MATCH (s:Spec)-[r]->(c:Section) RETURN s, r, c LIMIT 60"],
   ["Label counts", "MATCH (n) RETURN labels(n)[0] AS label, count(*) AS n ORDER BY n DESC"],
-];
-
-const cyStyle = () => [
-  { selector: "node", style: { "background-color": (n) => labelColor(n.data("label")), label: "data(short)", color: css("--text"), "font-size": 10, "text-valign": "bottom", "text-margin-y": 3, width: 18, height: 18 } },
-  { selector: "edge", style: { width: 1, "line-color": css("--line"), "target-arrow-color": css("--muted"), "target-arrow-shape": "triangle", "curve-style": "bezier" } },
 ];
 
 const isNode = (v) => v && typeof v === "object" && !Array.isArray(v) && typeof v.id === "string";
@@ -29,10 +26,11 @@ export function mount(el) {
   const err = h("div", { class: "err" });
   const out = h("div");
   const canvas = h("div", { id: "cy", hidden: true });
+  const bar = h("div", { class: "bar mt" }, run, graphBtn, status);
   el.append(
     h("div", { class: "bar" }, h("h2", {}, "Query"), pick, h("span", { class: "grow" })),
     box,
-    h("div", { class: "bar mt" }, run, graphBtn, status),
+    bar,
     err,
     out,
     canvas,
@@ -47,6 +45,45 @@ export function mount(el) {
   });
 
   let result = null;
+
+  function draw(data) {
+    canvas.hidden = false;
+    if (cy) cy.destroy();
+    cy = cytoscape({
+      container: canvas,
+      elements: elementsOf(data),
+      layout: { name: "cose", animate: false, padding: 24 },
+      style: cyStyle(),
+    });
+  }
+
+  // Presets-only mode (public process with SDD_PUBLIC_QUERY=presets, SPEC-09 §2 rule 5): the box is
+  // display-only and only named presets run.
+  async function runPreset(name) {
+    err.textContent = "";
+    out.replaceChildren();
+    graphBtn.hidden = true;
+    status.textContent = "Running…";
+    try {
+      const data = await api.preset(name);
+      status.textContent = `${name}: ${data.nodes.length} nodes, ${data.edges.length} edges`;
+      draw(data);
+    } catch (e) {
+      status.textContent = "";
+      err.textContent = e.message;
+    }
+  }
+
+  bar.append(picker(runPreset).el); // the presets also work as examples when Cypher is allowed
+  api
+    .health()
+    .then((hl) => {
+      if (hl.mode !== "public" || hl.public_query !== "presets") return;
+      box.readOnly = true;
+      box.value = "Only the named presets run on this server. Pick one below.";
+      pick.hidden = run.hidden = true;
+    })
+    .catch(() => {});
 
   function table(res) {
     const cell = (v) => (v === null || v === undefined ? "" : typeof v === "object" ? (isNode(v) ? v.id : JSON.stringify(v)) : String(v));
@@ -88,23 +125,9 @@ export function mount(el) {
         "MATCH (a)-[r]->(b) WHERE a.id IN $ids AND b.id IN $ids RETURN a.id AS s, type(r) AS t, b.id AS d",
         { ids },
       );
-      canvas.hidden = false;
-      if (cy) cy.destroy();
-      const seen = new Set();
-      const elements = nodes.rows.map(([id, label]) => ({ data: { id, label, short: id } }));
-      for (const [s, t, d] of edges.rows) {
-        const id = `${s}|${t}|${d}`;
-        if (!seen.has(id)) {
-          seen.add(id);
-          elements.push({ data: { id, source: s, target: d } });
-        }
-      }
-      cy = cytoscape({
-        container: canvas,
-        elements,
-       
-        layout: { name: "cose", animate: false, padding: 24 },
-        style: cyStyle(),
+      draw({
+        nodes: nodes.rows.map(([id, label]) => ({ id, label, title: id })),
+        edges: edges.rows.map(([source, type, target]) => ({ source, type, target })),
       });
     } catch (e) {
       err.textContent = e.message;

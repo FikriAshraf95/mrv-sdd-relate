@@ -12,9 +12,23 @@ import re
 from starlette.testclient import TestClient
 
 from sdd.graph import schema
-from sdd.web.api import STATIC_DIR
+from sdd.web.api import STATIC_DIR, create_app
+from tests.conftest import FAKE_PORT, MakeRuntime
 
-_OWN = {"index.html", "style.css", "app.js", "api.js", "dom.js", "board.js", "graph.js", "query.js"}
+_OWN = {
+    "index.html",
+    "style.css",
+    "app.js",
+    "api.js",
+    "dom.js",
+    "board.js",
+    "graph.js",
+    "query.js",
+    "cystyle.js",
+    "impact.js",
+    "explain.js",
+    "presets.js",
+}
 
 
 def _all_files() -> list[str]:
@@ -141,3 +155,35 @@ def test_graph_labels_offered_match_the_schema() -> None:
     css = _own_text()["style.css"]
     for label in offered:
         assert f"--l-{label}:" in css, label
+
+
+def test_spec09_ac02_dashboard_static_files_need_no_token(make_runtime: MakeRuntime) -> None:
+    # SPEC-09 §6 check 2: under SDD_TOKEN the shell and its files load, the data does not
+    client = TestClient(
+        create_app(make_runtime(SDD_TOKEN="s3cret-token")), base_url=f"http://localhost:{FAKE_PORT}"
+    )
+    assert client.get("/").status_code == 200
+    for name in _all_files():
+        assert client.get(f"/{name}").status_code == 200, name
+    assert client.get("/api/board").status_code == 401
+    assert client.get("/api/presets").status_code == 401
+    ok = client.get("/api/board", headers={"Authorization": "Bearer s3cret-token"})
+    assert ok.status_code == 200
+
+
+def test_dashboard_sends_the_token_as_a_header_only() -> None:
+    # Browser behaviour (the password field, "Forget token") is walked through by hand; pinned here:
+    api = _own_text()["api.js"]
+    assert "sessionStorage" in api
+    assert re.search(r"Authorization:\s*`Bearer \$\{token\}`", api)
+    assert re.search(r"if \(res\.status === 401\)", api)
+    # every storage access sits in a try/catch, and the token never goes into a URL or cookie
+    assert api.count("try {") >= 2
+    assert "document.cookie" not in "".join(_own_text().values())
+    assert not re.search(r"[?&]token=|\$\{token\}`\s*\)", api.replace("Bearer ${token}", ""))
+    # with a token EventSource is skipped, so the Board polls
+    assert re.search(r'typeof EventSource === "undefined" \|\| getToken\(\)', api)
+    app = _own_text()["app.js"]
+    assert "onUnauthorized(" in app
+    assert 'type: "password"' in app
+    assert "Forget token" in _own_text()["index.html"]

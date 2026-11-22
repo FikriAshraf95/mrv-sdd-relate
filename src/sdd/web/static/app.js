@@ -1,24 +1,18 @@
 // Shell: five tabs, hash routing (`#tab/<encoded id>`), theme toggle. Views live in their own
 // modules and export `mount(el, arg) -> cleanup | undefined`.
-import { api } from "./api.js";
+import { api, getToken, onUnauthorized, setToken } from "./api.js";
 import * as board from "./board.js";
+import { h } from "./dom.js";
+import * as explain from "./explain.js";
 import * as graph from "./graph.js";
+import * as impact from "./impact.js";
 import * as query from "./query.js";
-
-const placeholder = (name, note) => ({
-  mount(el) {
-    const d = document.createElement("div");
-    d.className = "placeholder";
-    d.textContent = `${name}: ${note}`;
-    el.append(d);
-  },
-});
 
 const TABS = [
   ["board", "Board", board],
   ["graph", "Graph", graph],
-  ["impact", "Impact", placeholder("Impact", "coming in the next milestone (M05b).")],
-  ["explain", "Explain", placeholder("Explain", "coming in the next milestone (M05b).")],
+  ["impact", "Impact", impact],
+  ["explain", "Explain", explain],
   ["query", "Query", query],
 ];
 
@@ -69,6 +63,41 @@ function render() {
   cleanup = mod.mount(view, arg) || null;
 }
 window.addEventListener("hashchange", render);
+
+// SDD_TOKEN: on a 401 the shell asks for the token once and re-renders; "Forget token" clears it.
+const forget = document.getElementById("forget");
+const syncForget = () => {
+  forget.hidden = !getToken();
+};
+let asking = false;
+onUnauthorized(() => {
+  if (asking) return;
+  asking = true;
+  const field = h("input", { type: "password", autocomplete: "off", "aria-label": "Token", placeholder: "SDD_TOKEN" });
+  const form = h(
+    "form",
+    { class: "login" },
+    h("p", {}, "This server needs a token. It stays in this tab only and is sent as a header."),
+    field,
+    h("button", { type: "submit", class: "primary" }, "Unlock"),
+  );
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    setToken(field.value.trim());
+    asking = false;
+    syncForget();
+    render();
+  });
+  view.replaceChildren(form);
+  field.focus();
+});
+forget.addEventListener("click", (e) => {
+  e.preventDefault();
+  setToken("");
+  syncForget();
+  render();
+});
+syncForget();
 
 // Theme: follows the system until the toggle is used.
 const root = document.documentElement;

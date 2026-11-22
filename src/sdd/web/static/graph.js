@@ -1,6 +1,7 @@
 // Graph: Cytoscape over /api/graph with a label filter, search, side panel, expand and reset.
 import { api } from "./api.js";
 import { DEFAULT_LABELS, LABELS, css, h, labelColor } from "./dom.js";
+import { PRESET_PREFIX, picker } from "./presets.js";
 
 export function mount(el, arg) {
   let cy = null;
@@ -14,8 +15,9 @@ export function mount(el, arg) {
   const canvas = h("div", { id: "cy" });
   const err = h("div", { class: "err" });
   const reset = h("button", { type: "button" }, "Reset");
+  const presets = picker((name) => loadPreset(name));
   el.append(
-    h("div", { class: "bar" }, h("h2", {}, "Graph"), search, reset, h("span", { class: "grow" })),
+    h("div", { class: "bar" }, h("h2", {}, "Graph"), search, reset, presets.el, h("span", { class: "grow" })),
     h("div", { class: "bar" }, filters),
     err,
     h("div", { class: "split" }, canvas, side),
@@ -127,8 +129,22 @@ export function mount(el, arg) {
     }
   }
 
+  async function loadPreset(name) {
+    err.textContent = "";
+    try {
+      const data = await api.preset(name);
+      cy.elements().remove();
+      add(data);
+      side.replaceChildren(h("h3", {}, name), h("span", { class: "muted small" }, `${data.nodes.length} nodes, ${data.edges.length} edges`));
+      history.replaceState(null, "", `#graph/${encodeURIComponent(PRESET_PREFIX + name)}`);
+    } catch (e) {
+      err.textContent = e.message;
+    }
+  }
+
   async function load(focus) {
     err.textContent = "";
+    if (focus.startsWith(PRESET_PREFIX)) return loadPreset(focus.slice(PRESET_PREFIX.length));
     try {
       if (!focus) {
         const b = await api.board();
