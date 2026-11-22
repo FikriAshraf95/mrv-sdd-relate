@@ -1,0 +1,115 @@
+// Query: a read-only Cypher box, example queries, a results table and "Show as graph".
+import { api } from "./api.js";
+import { LABELS, css, h, labelColor } from "./dom.js";
+
+const EXAMPLES = [
+  ["Open tasks", "MATCH (t:Task) WHERE t.status <> 'done' RETURN t.id AS id, t.title AS title, t.status AS status ORDER BY id LIMIT 50"],
+  ["Milestones", "MATCH (m:Milestone) RETURN m.id AS id, m.title AS title, m.status AS status ORDER BY m.order"],
+  ["Deviations", "MATCH (d:Deviation) RETURN d.id AS id, d.title AS title, d.status AS status ORDER BY id"],
+  ["Tasks with their milestone", "MATCH (m:Milestone)-[r:INCLUDES]->(t:Task) RETURN m, r, t LIMIT 40"],
+  ["Spec sections", "MATCH (s:Spec)-[r]->(c:Section) RETURN s, r, c LIMIT 60"],
+  ["Label counts", "MATCH (n) RETURN labels(n)[0] AS label, count(*) AS n ORDER BY n DESC"],
+];
+
+const lit = (ids) => `[${ids.map((i) => JSON.stringify(i)).join(", ")}]`;
+const isNode = (v) => v && typeof v === "object" && !Array.isArray(v) && typeof v.id === "string";
+
+export function mount(el) {
+  let cy = null;
+  const box = h("textarea", { class: "cypher", "aria-label": "Cypher", spellcheck: "false" });
+  box.value = EXAMPLES[0][1];
+  const pick = h("select", { "aria-label": "Example queries" }, new Option("Examples", ""), ...EXAMPLES.map(([t], i) => new Option(t, String(i))));
+  const run = h("button", { type: "button", class: "primary" }, "Run");
+  const graphBtn = h("button", { type: "button", hidden: true }, "Show as graph");
+  const status = h("span", { class: "muted small" });
+  const err = h("div", { class: "err" });
+  const out = h("div");
+  const canvas = h("div", { id: "cy", hidden: true });
+  el.append(
+    h("div", { class: "bar" }, h("h2", {}, "Query"), pick, h("span", { class: "grow" })),
+    box,
+    h("div", { class: "bar", style: "margin-top:8px" }, run, graphBtn, status),
+    err,
+    out,
+    canvas,
+  );
+
+  pick.addEventListener("change", () => {
+    if (pick.value !== "") box.value = EXAMPLES[Number(pick.value)][1];
+    pick.value = "";
+  });
+  box.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) run.click();
+  });
+
+  let result = null;
+
+  function table(res) {
+    const cell = (v) => (v === null || v === undefined ? "" : typeof v === "object" ? (isNode(v) ? v.id : JSON.stringify(v)) : String(v));
+    return h(
+      "div",
+      { class: "table-wrap" },
+      h(
+        "table",
+        {},
+        h("thead", {}, h("tr", {}, res.columns.map((c) => h("th", {}, c)))),
+        h("tbody", {}, res.rows.map((r) => h("tr", {}, r.map((v) => h("td", {}, cell(v)))))),
+      ),
+    );
+  }
+
+  run.addEventListener("click", async () => {
+    err.textContent = "";
+    out.replaceChildren();
+    canvas.hidden = true;
+    graphBtn.hidden = true;
+    status.textContent = "Running…";
+    try {
+      result = await api.query(box.value);
+      status.textContent = `${result.rows.length} row${result.rows.length === 1 ? "" : "s"}${result.truncated ? " (truncated)" : ""}`;
+      out.replaceChildren(table(result));
+      graphBtn.hidden = !result.rows.some((r) => r.some(isNode));
+    } catch (e) {
+      status.textContent = "";
+      err.textContent = e.message;
+    }
+  });
+
+  graphBtn.addEventListener("click", async () => {
+    err.textContent = "";
+    const ids = [...new Set(result.rows.flatMap((r) => r.filter(isNode).map((n) => n.id)))].slice(0, 100);
+    try {
+      const nodes = await api.query(`MATCH (n) WHERE n.id IN ${lit(ids)} RETURN n.id AS id, labels(n)[0] AS label`);
+      const edges = await api.query(
+        `MATCH (a)-[r]->(b) WHERE a.id IN ${lit(ids)} AND b.id IN ${lit(ids)} RETURN a.id AS s, type(r) AS t, b.id AS d`,
+      );
+      canvas.hidden = false;
+      if (cy) cy.destroy();
+      const seen = new Set();
+      const elements = nodes.rows.map(([id, label]) => ({ data: { id, label, short: id } }));
+      for (const [s, t, d] of edges.rows) {
+        const id = `${s}|${t}|${d}`;
+        if (!seen.has(id)) {
+          seen.add(id);
+          elements.push({ data: { id, source: s, target: d } });
+        }
+      }
+      cy = cytoscape({
+        container: canvas,
+        elements,
+       
+        layout: { name: "cose", animate: false, padding: 24 },
+        style: [
+          { selector: "node", style: { "background-color": (n) => labelColor(LABELS.includes(n.data("label")) ? n.data("label") : "other"), label: "data(short)", color: css("--text"), "font-size": 10, "text-valign": "bottom", "text-margin-y": 3, width: 18, height: 18 } },
+          { selector: "edge", style: { width: 1, "line-color": css("--line"), "target-arrow-color": css("--muted"), "target-arrow-shape": "triangle", "curve-style": "bezier" } },
+        ],
+      });
+    } catch (e) {
+      err.textContent = e.message;
+    }
+  });
+
+  return () => {
+    if (cy) cy.destroy();
+  };
+}

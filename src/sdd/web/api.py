@@ -12,6 +12,7 @@ from __future__ import annotations
 import contextlib
 import json
 from collections.abc import AsyncIterator, Callable
+from pathlib import Path
 from typing import Any
 
 from starlette.applications import Starlette
@@ -19,7 +20,8 @@ from starlette.concurrency import run_in_threadpool
 from starlette.middleware import Middleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
-from starlette.routing import Route
+from starlette.routing import Mount, Route
+from starlette.staticfiles import StaticFiles
 
 from sdd.errors import SddError
 from sdd.service import api_views, changes, context, coordination, impact, query_guard
@@ -28,7 +30,9 @@ from sdd.web import sse
 from sdd.web.errors import HTTP_STATUS, error_response
 from sdd.web.security import SecurityMiddleware
 
-__all__ = ["HTTP_STATUS", "create_app"]
+__all__ = ["HTTP_STATUS", "STATIC_DIR", "create_app"]
+
+STATIC_DIR = Path(__file__).parent / "static"
 
 
 def _int(request: Request, name: str, default: int) -> int:
@@ -274,6 +278,8 @@ def create_app(runtime: Runtime, *, mcp_app: Starlette | None = None) -> Starlet
             async with mcp_app.router.lifespan_context(mcp_app):
                 yield
 
+    # the dashboard goes last so that /api and /mcp win
+    routes.append(Mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="dashboard"))
     return Starlette(
         routes=routes,
         middleware=[Middleware(SecurityMiddleware, settings=runtime.settings)],

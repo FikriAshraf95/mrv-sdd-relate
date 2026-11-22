@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SDD Graph</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <strong class="brand">SDD Graph</strong>
+  <nav id="tabs" class="tabs" aria-label="Views"></nav>
+  <select id="tabs-select" class="tabs-select" aria-label="View"></select>
+  <span id="sync" class="muted small"></span>
+  <button id="theme" type="button" class="ghost" title="Toggle light and dark">Theme</button>
+</header>
+<main id="view"></main>
+<script src="vendor/cytoscape.min.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

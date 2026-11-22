@@ -9,12 +9,12 @@
 A static dashboard served by the daemon that judges understand in seconds: a live milestone Board (the demo video's main shot), an explorable Graph and a read-only Query box. No build step, no framework, no external requests. Impact and Explain follow in M05b, once M04b provides their endpoints.
 
 ## Tasks
-- [ ] **M05a.1** `web/static/`: shell with five tabs (Impact and Explain as placeholders), hash routing with encoded IDs, colour tokens, light and dark themes, works from 360 px; vendored `cytoscape.min.js` ([SPEC-07 §1, §4](../specs/SPEC-07-dashboard-and-api.md#4-dashboard-views)).
-- [ ] **M05a.2** `api.js` data adapter with the HTTP backend (the static and WASM backends come in M08). (after M05a.1)
-- [ ] **M05a.3** Board: milestone picker, three columns, agent chips, live moves over SSE with highlight, polling fallback, event ticker. (after M05a.2)
-- [ ] **M05a.4** Graph over `/api/graph`: label filter, search, side panel, expand on double-click, *Reset* (presets come with endpoint 13 in M05b). (after M05a.2)
-- [ ] **M05a.5** Query: Cypher box, a few built-in example queries, results table, *Show as graph* (presets and presets-only mode in M05b). (after M05a.2)
-- [ ] **M05a.6** Tests: [SPEC-07 §5](../specs/SPEC-07-dashboard-and-api.md#5-acceptance-checks) checks 2, 3, 5, 6 and 7 (deep-link part); the static smoke test ([SPEC-10 §6](../specs/SPEC-10-testing-and-benchmark.md#6-gates)).
+- [x] **M05a.1** `web/static/`: shell with five tabs (Impact and Explain as placeholders), hash routing with encoded IDs, colour tokens, light and dark themes, works from 360 px; vendored `cytoscape.min.js` ([SPEC-07 §1, §4](../specs/SPEC-07-dashboard-and-api.md#4-dashboard-views)).
+- [x] **M05a.2** `api.js` data adapter with the HTTP backend (the static and WASM backends come in M08). (after M05a.1)
+- [x] **M05a.3** Board: milestone picker, three columns, agent chips, live moves over SSE with highlight, polling fallback, event ticker. (after M05a.2)
+- [x] **M05a.4** Graph over `/api/graph`: label filter, search, side panel, expand on double-click, *Reset* (presets come with endpoint 13 in M05b). (after M05a.2)
+- [x] **M05a.5** Query: Cypher box, a few built-in example queries, results table, *Show as graph* (presets and presets-only mode in M05b). (after M05a.2)
+- [x] **M05a.6** Tests: [SPEC-07 §5](../specs/SPEC-07-dashboard-and-api.md#5-acceptance-checks) checks 2, 3, 5, 6 and 7 (deep-link part); the static smoke test ([SPEC-10 §6](../specs/SPEC-10-testing-and-benchmark.md#6-gates)).
 
 ## Acceptance criteria
 1. The tests above are green, along with the full gates.

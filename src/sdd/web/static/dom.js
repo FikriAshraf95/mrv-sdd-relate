@@ -1,0 +1,38 @@
+// Small DOM helpers. Data never goes through innerHTML.
+
+export function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v === false || v === null || v === undefined) continue;
+    if (k === "class") el.className = v;
+    else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v === true ? "" : v);
+  }
+  el.append(...kids.flat().filter((k) => k !== null && k !== undefined && k !== false));
+  return el;
+}
+
+// Text with `code` spans, as task titles are written in Markdown.
+export function inline(text) {
+  return String(text ?? "")
+    .split(/(`[^`]+`)/)
+    .filter(Boolean)
+    .map((p) => (p.startsWith("`") && p.endsWith("`") ? h("code", {}, p.slice(1, -1)) : p));
+}
+
+export function agentColor(name) {
+  let n = 0;
+  for (const c of String(name)) n = (n * 31 + c.charCodeAt(0)) % 360;
+  return `hsl(${n} 55% 38%)`;
+}
+
+export function css(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || "#94a3b8";
+}
+
+const KNOWN = [
+  "Spec", "Section", "Milestone", "Task", "Deviation", "File", "Commit",
+  "Feature", "Domain", "Table", "Column", "Agent",
+];
+export const LABELS = KNOWN;
+export const labelColor = (label) => css(`--l-${KNOWN.includes(label) ? label : "other"}`);
