@@ -183,6 +183,7 @@ This repo is built with the workflow it improves.
 
 | | |
 |---|---|
+| [docs/manuals/](docs/manuals/README.md) | **User manual**: quick start, tutorial for your own repo, how-to guides, CLI / MCP / API reference, agent guide, troubleshooting |
 | [docs/IDEA.md](docs/IDEA.md) | The locked idea: problem, users, scope, non-goals |
 | [docs/specs/](docs/specs/) | Source of truth. Start with [SPEC-00](docs/specs/SPEC-00-overview.md) (concepts and global conventions) |
 | [docs/milestones/](docs/milestones/) | Worked in number order, one at a time |
