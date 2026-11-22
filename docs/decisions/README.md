@@ -60,7 +60,7 @@ These records were written before the milestones were split into sub-milestones 
 
 | # | Title | Needed by | Status |
 |---|---|---|---|
-| [DEC-004](DEC-004-sample-fallback.md) | What the sample is if office-suite-v2 can't be published | M06 | Accepted: invented sample (O1 closed: no) |
+| [DEC-004](DEC-004-sample-fallback.md) | What the sample is if private-repo-app can't be published | M06 | Accepted: invented sample (O1 closed: no) |
 | [DEC-003](DEC-003-claim-liveness.md) | When a claim goes stale, and what "last session" means | M03 | Accepted: 2 h TTL + forced release; since last `what_changed` |
 | [DEC-002](DEC-002-graph-only-links.md) | Write deviation→task and *affects* links to Markdown, or keep them graph-only | M01 | Accepted: A, in the deviation file |
 | [DEC-001](DEC-001-committed-store.md) | Commit the live store, or only snapshots | M00.1 | Accepted: snapshots; sample store as a build output |

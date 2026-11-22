@@ -8,7 +8,7 @@ Follow `CLAUDE.md`. D005 is the highest deviation. This plan expects **no new de
 - **In:** `sdd export --mermaid | --cypher | --json | --claude-status`; endpoint 15 `GET /api/mermaid?preset=`; `sdd snapshot`; O3 closed; table `impact` gains commits (new task **M06a.6**); the invented sample `samples/courtside/` (docs + placeholder code); `scripts/make_sample.py` (scripted history → `samples/courtside.bundle`, then sync + snapshot); the committed stores; tests; spec edits; `Dockerfile` runtime stage copies `samples/`; `.sddignore` gains `samples/`.
 - **Not in:** `replay.toml`, `sdd demo prepare|replay|serve`, `docker-compose.yml` for judges, public deploy (all M06b); static site (M08); a dashboard button for Mermaid.
 - **Layering:** only `graph/store.py` imports `relate` **and only it runs the `relate` CLI** (subprocess), so every Relate access stays behind one door. Cypher lives in `graph/` and `service/` only. All Markdown writes go through `sync/writeback.py`. No new dependencies.
-- **Nothing from office-suite-v2.** The sample is invented from scratch (domain below). Do not open `D:\Works\ai\office-suite-v2`. Do not use the table name `attachments` anywhere in the sample.
+- **Nothing from private-repo-app.** The sample is invented from scratch (domain below). Do not open `D:\Works\ai\private-repo-app`. Do not use the table name `attachments` anywhere in the sample.
 - **Do not commit.** Leave the work tree for the Opus review; it commits.
 
 ## 1. O3: what the tooling allows (verified 2026-11-22 on relate-db 1.2.0)

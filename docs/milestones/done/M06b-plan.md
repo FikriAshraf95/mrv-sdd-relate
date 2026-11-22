@@ -8,7 +8,7 @@ Follow `CLAUDE.md`. D005 is the highest deviation. This plan expects **no new de
 - **In:** `samples/courtside/replay.toml`; `src/sdd/public.py` + `sdd public`; `src/sdd/demo/` (prepare, replay) + `sdd demo prepare|replay|serve`; runtime image final; root `docker-compose.yml` (judges); `deploy/docker-compose.yml`, `deploy/.env.example`, `deploy/README.md`; tests; spec edits.
 - **Not in:** the actual home-server deploy and the phone check (the human does them after the review, from `deploy/README.md`); `sdd bench` (M07); the static site (M08).
 - **Layering (SPEC-01 §3):** `public.py` wires parts like `daemon.py` (anything but `relate`). `demo/` may import `service`, `sync`, `ids`, `errors`, `config`, never `graph`. If `demo/` needs a store call, add a small function in `service/` and call that. Only `config.py` reads `os.environ`. All Markdown writes go through `sync/writeback.py`. No new dependencies.
-- **Nothing from office-suite-v2.** M06b.5 says "the shape of office-suite-v2's `deploy/`". **Do not open that repo.** SPEC-11 §7 already holds the shape (files, services, env, run book). Build from the spec only.
+- **Nothing from private-repo-app.** M06b.5 says "the shape of private-repo-app's `deploy/`". **Do not open that repo.** SPEC-11 §7 already holds the shape (files, services, env, run book). Build from the spec only.
 - **Do not commit.** Leave the work tree for the Opus review; it commits.
 - Work through the sdd CLI in the dev container (the daemon is running): `sdd claim M06b.N --agent sonnet-1`, `sdd context M06b.N`, `sdd section "SPEC-11 §4"`, `sdd done M06b.N --agent sonnet-1 --notes … --files …`. Don't edit task boxes by hand.
 

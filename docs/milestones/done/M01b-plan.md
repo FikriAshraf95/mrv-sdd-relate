@@ -159,7 +159,7 @@ Shared helper `tests/graph_dump.py`: `dump(store, *, exclude=…) -> (nodes: dic
 
 ## 8. Gates and walkthrough (acceptance 2)
 - Full gates in the dev container: `uv run pytest -q`, `ruff check`, `ruff format --check`, `mypy src/sdd`, `lint-imports`.
-- `sdd doctor --project /refs/office-rag --store :memory:` and `--project /refs/office-suite`: zero `error`. Record **counts only** (specs, sections, milestones, tasks, deviations, legacy task lines, unresolved links) — never names or text from office-suite-v2 (O1). The `/refs` mounts are read-only; never write there (doctor does not write anyway).
+- `sdd doctor --project /refs/office-rag --store :memory:` and `--project /refs/office-suite`: zero `error`. Record **counts only** (specs, sections, milestones, tasks, deviations, legacy task lines, unresolved links) — never names or text from private-repo-app (O1). The `/refs` mounts are read-only; never write there (doctor does not write anyway).
 - `sdd sync` on this repo (`--project /workspace`): zero warnings. If our own docs warn, fix the docs (or the parser if it is a parser bug, with a test). `sdd status` lists M00a … M99 with their tasks.
 - Do **not** tick boxes or move the milestone file; the Opus review does that.
 

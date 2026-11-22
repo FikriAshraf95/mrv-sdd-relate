@@ -34,3 +34,6 @@ bench/results/*.tmp
 
 # static demo build (sdd site)
 /site/
+
+# private
+/private/

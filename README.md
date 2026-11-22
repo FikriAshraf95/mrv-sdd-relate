@@ -6,7 +6,9 @@ SDD Graph turns a spec-driven repo into one live **[Relate](HANDOFF.md)** graph.
 
 **Markdown stays the source of truth.** The graph can be rebuilt from Markdown, code and git at any time. The only exceptions are claims, agents and events.
 
-> **Status (2026-11-22):** building. Specs v1 and milestones are written; the Docker dev environment, package skeleton, Relate access layer, Markdown parsers, graph sync (`sdd sync`, `status`, `doctor`, `ids`), the sync daemon (`sdd daemon`: watcher, first API endpoints, live events) and the coordination tools (atomic claims, deviations, completions and `what_changed` over MCP, HTTP and the CLI) are done ([M00a](docs/milestones/done/M00a-docker-and-skeleton.md), [M00b](docs/milestones/done/M00b-relate-access-layer.md), [M01a](docs/milestones/done/M01a-markdown-parsers.md), [M01b](docs/milestones/done/M01b-graph-sync.md), [M02](docs/milestones/done/M02-sync-daemon.md), [M03a](docs/milestones/done/M03a-coordination-tools.md)). Everything below describes the planned v1. The milestone that builds each part is listed next to it. Next up: [M03b: Context packet, query guard and Claude Code integration](docs/milestones/done/M03b-context-and-integration.md).
+> **Status (2026-11-22):** v1 built. Every milestone from M00a to M08 is done ([docs/milestones/done/](docs/milestones/done/)), with nine logged deviations (D001–D009, see [DEVIATIONS.md](docs/DEVIATIONS.md)). The repo has been built with its own tool since M03b. One milestone is left: [M99: Release and submission](docs/milestones/M99-release-and-submission.md) (security sweep, final stores, README, video, submission).
+>
+> **Try it:** live dashboard at <https://sddrelate.myradiantvision.com> · zero-install static demo at <https://fikriashraf95.github.io/mrv-sdd-relate/> · locally with `docker compose up`.
 
 ## Why
 
@@ -61,6 +63,37 @@ flowchart LR
 
 [SPEC-02](docs/specs/SPEC-02-graph-schema.md) owns the full schema.
 
+## How Relate is used and why
+
+[Relate](https://relatedb.ai/) is an embedded property-graph engine with Cypher, "closer to SQLite than to a clustered graph server". SDD Graph embeds it in-process through the Python package `relate-db` (≥ 1.2). It is the only database in the project.
+
+**Storage modes**
+
+| Mode | Where | Why |
+|---|---|---|
+| **Directory** (WAL + Parquet shards) | `.sdd/graph/` in each project, owned by the daemon | The live store. It travels with the repo, survives restarts, and Relate can open it `read_only` beside the writer, so the dashboard, `sdd query` and the public process read snapshots without blocking writes. It holds graph-only state (claims, agents, events) that Markdown can't rebuild. |
+| **Single file** (`.rl`) | `.sdd/snapshots/graph.rl`, `samples/courtside/.sdd/snapshots/graph.rl` | One portable, committed file that judges can open with the `relate` CLI. |
+| **Directory, JSON codec** | `.sdd/snapshots/graph-json/` | A readable copy of the same graph, diffable in git. |
+| **In-memory** (`:memory:`) | Tests, `sdd doctor --store :memory:` | Fast throwaway graphs; nothing is written to disk. |
+| **Relate WASM** (`@relate/relate-wasm`) | The static demo | Loads the sample's exported `graph.cypher` in the browser in ~0.3 s, so the Query tab runs real Cypher with no server. |
+
+The committed stores are the sample's built store (`samples/courtside/.sdd/graph/`) and `sdd snapshot` output (directory, `.rl` and JSON copies, made with `relate clone`). This repo's live `.sdd/graph/` is never committed ([DEC-001](docs/decisions/DEC-001-committed-store.md)).
+
+**Why a graph, and why Relate**
+
+- **The questions are traversals.** "Which sections does this task need, and which deviations amend them?", "what does changing the `bookings` table touch?", "why does this file exist?" are each one Cypher pattern across specs, sections, tasks, deviations, tables, features, files and commits. In Markdown they take many grep-and-read rounds. `impact` and `explain` return the shortest `via` chain for every hit, so an agent sees *why* something is related, not just *that* it is.
+- **Embedded, per project, no server.** A spec-driven repo is a single project on a laptop. Relate needs no database server to install or run: `pip install` and a directory next to the code. The same engine runs in Docker, in tests (`:memory:`) and in the browser (WASM).
+- **Transactions make coordination atomic.** `claim_task` checks the holder, the dependencies and liveness, then sets the claim in one transaction on one writer, so two agents can never both win a task (the benchmark: 0 double claims, 0 lost ticks against 139 for agents editing Markdown).
+- **Read-only snapshots make public mode safe.** The hosted demo opens the store with `read_only=True` and serves no write route. Arbitrary Cypher runs only through the query guard: keyword checks, bounded variable-length patterns, always rolled back, in a killable worker process with a memory cap ([D006](docs/DEVIATIONS.md)).
+
+**Designed around Relate's limits**
+
+- **Single-process engine.** One process owns a store, so the daemon is the only writer and every write goes through one queue on one thread (Relate connections are thread-affine). MCP runs over localhost HTTP, never stdio, so every Claude Code session shares that one daemon instead of starting a process that would fight over the store. Retryable conflicts are retried at 50 / 200 / 800 ms.
+- **No map properties.** Maps are stored as JSON strings under `<name>_json` and decoded on the way out.
+- **No per-query timeout or row cap** in `relate-db` 1.2: the query guard enforces 100 rows, 5 s and a memory cap itself.
+- **One door.** Only [src/sdd/graph/store.py](src/sdd/graph/store.py) imports `relate`, and an import-linter contract enforces it.
+- **The Markdown vault store isn't released yet**, so SDD Graph has its own Markdown → graph sync and write-back.
+
 ## Agent tools (MCP)
 
 | Tool | Purpose |
@@ -82,29 +115,31 @@ flowchart LR
 - **Worker:** `claim_task` → `get_context` → build and test → `log_deviation` for each departure → `complete_task`
 - **Every session start:** `what_changed(since="last_session", agent=…)` instead of re-reading docs
 
-## Quick start (planned)
+## Quick start
 
 Everything runs in Docker. Nothing needs to be installed on the host apart from Docker.
 
-**Judges / try the sample** (from M06b):
+**Judges / try the sample** (`samples/courtside/`, an invented project whose centrepiece table is `bookings`):
 
 ```bash
 docker compose up
 # dashboard: http://localhost:8770
 ```
 
-**Zero-install demo** (from M08): <https://fikriashraf95.github.io/mrv-sdd-relate/>. It runs Relate in WebAssembly in your browser; if your browser can't, it shows answers precomputed from the same graph (the footer says which).
+**Live demo:** <https://sddrelate.myradiantvision.com>. The same sample in public mode: a read-only snapshot, no MCP, no write routes, guarded queries in a killable worker process.
 
-**Development** (from M00a):
+**Zero-install demo:** <https://fikriashraf95.github.io/mrv-sdd-relate/>. The Query tab runs Relate in WebAssembly in your browser; the other views use answers precomputed from the same graph. If your browser can't load WASM, the Query examples still run (the footer says which mode you're in).
+
+**Development:**
 
 ```bash
 docker compose -f docker-compose.dev.yml up -d dev
 docker compose -f docker-compose.dev.yml exec dev uv sync
 docker compose -f docker-compose.dev.yml exec dev uv run pytest -q
-docker compose -f docker-compose.dev.yml exec dev uv run sdd daemon --host 0.0.0.0   # from M02
+docker compose -f docker-compose.dev.yml exec dev uv run sdd daemon --host 0.0.0.0
 ```
 
-**Use it on your own SDD repo** (from M03b):
+**Use it on your own SDD repo:**
 
 ```bash
 sdd init      # writes .sdd/config.toml, merges an "sdd" server into .mcp.json, adds the agent skill
@@ -114,6 +149,19 @@ sdd doctor    # parser warnings, unresolved links, duplicate IDs
 ```
 
 [SPEC-08](docs/specs/SPEC-08-cli-and-exports.md) lists every CLI command.
+
+## Benchmark
+
+`sdd bench` compares the graph with the Markdown workflow ([full results](bench/results/2026-11-22.md)):
+
+| Measure | Markdown | Graph |
+|---|---|---|
+| Context per task, sample (30 tasks) | 2,009 tokens (grep + Read sections) | 780 tokens, **−61.2%** |
+| Context per task, this repo (20 tasks, [results](bench/results/self/2026-11-22.md)) | 13,239 tokens | 3,714 tokens, **−71.9%** |
+| Session restart after edits | 2,731 tokens (re-read 7 files) | 324 tokens (one `what_changed`), **−88.1%** |
+| 10 agents, 30 tasks, 5 runs | 139 lost ticks | **0 lost ticks, 0 double claims** |
+
+The sample's 61.2% falls short of the 70% target ([D007](docs/DEVIATIONS.md)). Tasks whose lines link the spec sections they implement get the biggest savings; unlinked tasks save little.
 
 ## Repo format it expects
 
@@ -145,18 +193,18 @@ This repo is built with the workflow it improves.
 
 ## Roadmap
 
-| Milestone | Delivers |
-|---|---|
-| M00a, M00b | Docker dev environment, package skeleton, Relate access layer |
-| M01a, M01b | Markdown parsers, graph upsert and full sync |
-| M02 | Sync daemon with write-back |
-| M03a, M03b | Coordination tools, context packets, query guard; this repo switches to using itself |
-| M04a, M04b | Code and git layer, schema tables, features, `impact` / `explain` |
-| M05a, M05b | Dashboard: graph, milestone board, Impact and Explain views |
-| M06a, M06b | Invented sample project, exports, public mode, sprint replay, hosted demo |
-| M07 | Token benchmark: Markdown vs graph |
-| M08 | Static zero-install demo with Relate's WASM build (stretch) |
-| M99 | Security sweep and submission |
+| Milestone | Delivers | Status |
+|---|---|---|
+| M00a, M00b | Docker dev environment, package skeleton, Relate access layer | Done |
+| M01a, M01b | Markdown parsers, graph upsert and full sync | Done |
+| M02 | Sync daemon with write-back | Done |
+| M03a, M03b | Coordination tools, context packets, query guard; this repo switches to using itself | Done |
+| M04a, M04b | Code and git layer, schema tables, features, `impact` / `explain` | Done |
+| M05a, M05b | Dashboard: graph, milestone board, Impact and Explain views | Done |
+| M06a, M06b | Invented sample project, exports, public mode, sprint replay, hosted demo | Done |
+| M07 | Token benchmark: Markdown vs graph | Done |
+| M08 | Static zero-install demo with Relate's WASM build | Done |
+| M99 | Security sweep, final stores, README, video and submission | **Next** |
 
 ## Security
 

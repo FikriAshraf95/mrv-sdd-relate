@@ -43,7 +43,7 @@ Stage **`build`**: `uv sync --frozen --no-dev --no-editable` into `/opt/venv` (n
 
 ## 5. Sample project
 
-`samples/courtside/` is the project judges explore: **Courtside**, a court-booking app for a community sports hall (badminton and tennis courts), built by three invented people (Nadia Okafor, Tomás Reyes, Mei Lin Chua, `@courtside.example`). It is **invented**: office-suite-v2 cannot be made public (open item O1, closed "no"; [DEC-004](../decisions/DEC-004-sample-fallback.md)), so no text, file name, commit message or structure specific to it is copied. Only its *conventions* are used, which are generic.
+`samples/courtside/` is the project judges explore: **Courtside**, a court-booking app for a community sports hall (badminton and tennis courts), built by three invented people (Nadia Okafor, Tomás Reyes, Mei Lin Chua, `@courtside.example`). It is **invented**: private-repo-app cannot be made public (open item O1, closed "no"; [DEC-004](../decisions/DEC-004-sample-fallback.md)), so no text, file name, commit message or structure specific to it is copied. Only its *conventions* are used, which are generic.
 
 - **Format:** the office-suite conventions (`**Spec ID:**` headers, `### <table>` schema tables with `→ <table> [restrict]`, letter-suffixed milestones, `**Status: DONE (…)**` paragraphs, plan files, nested `> > **DEVIATION:**` notes), plus this tool's conventions (task IDs, `(after …)`, Feature lines). It grows out of the `suite_style` fixture ([SPEC-10 §3](SPEC-10-testing-and-benchmark.md#3-fixtures)).
 - **Size:** about 6 specs (one schema spec with 6–8 tables), 8 milestones (some done, some letter-suffixed, one with a plan file), about 6 deviations, and a code tree of small placeholder files grouped by feature, so Feature globs, `explain` and `find_code` have something to show.
@@ -70,7 +70,7 @@ A GitHub Actions workflow builds `site/`: the dashboard's static files + the sam
 
 ## 7. Home hosting
 
-The same pattern as office-suite-v2's `deploy/` (copy the shape, not the services): the home server runs Docker, and a **remotely managed Cloudflare tunnel** publishes one hostname. Nothing is opened on the router.
+The same pattern as private-repo-app's `deploy/` (copy the shape, not the services): the home server runs Docker, and a **remotely managed Cloudflare tunnel** publishes one hostname. Nothing is opened on the router.
 
 ### 7.1 Files
 - `deploy/docker-compose.yml`, with `name: relate-sdd` so it never clashes with other stacks on the server (office-suite runs as `office-suite`).

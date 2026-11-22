@@ -23,8 +23,8 @@ services:
       # Reference projects: read-only, docs and CLAUDE.md only. Never modified, never published.
       - ${SDD_REF_RAG:-D:/Works/ai/office-rag}/docs:/refs/office-rag/docs:ro
       - ${SDD_REF_RAG:-D:/Works/ai/office-rag}/CLAUDE.md:/refs/office-rag/CLAUDE.md:ro
-      - ${SDD_REF_SUITE:-D:/Works/ai/office-suite-v2}/docs:/refs/office-suite/docs:ro
-      - ${SDD_REF_SUITE:-D:/Works/ai/office-suite-v2}/CLAUDE.md:/refs/office-suite/CLAUDE.md:ro
+      - ${SDD_REF_SUITE:-D:/Works/ai/private-repo-app}/docs:/refs/office-suite/docs:ro
+      - ${SDD_REF_SUITE:-D:/Works/ai/private-repo-app}/CLAUDE.md:/refs/office-suite/CLAUDE.md:ro
 
 volumes:
   venv:

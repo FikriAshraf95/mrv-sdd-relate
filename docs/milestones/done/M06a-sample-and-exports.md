@@ -6,7 +6,7 @@
 > **Split from:** M06 (2026-11-21)
 
 ## Goal
-The project judges explore: an invented, believable SDD repo in the office-suite format, with a designed centrepiece table whose `impact` shows every kind of link. Plus the exports and snapshots that let judges read the graph without running anything. Nothing from office-suite-v2.
+The project judges explore: an invented, believable SDD repo in the office-suite format, with a designed centrepiece table whose `impact` shows every kind of link. Plus the exports and snapshots that let judges read the graph without running anything. Nothing from private-repo-app.
 
 ## Tasks
 ### Sample

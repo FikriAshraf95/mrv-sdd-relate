@@ -234,7 +234,7 @@ Severity order matters for `sdd doctor` (exit 1 on `error`). Keep the codes in o
 
 ## 9. Fixtures (M01a.1) — invented content only
 
-**Never copy text, titles, file names (beyond ID + invented slug), commit messages or table rows from `/refs/office-suite` (office-suite-v2) — O1.** Do not copy office-rag text either; reproduce conventions only. Use invented domains:
+**Never copy text, titles, file names (beyond ID + invented slug), commit messages or table rows from `/refs/office-suite` (private-repo-app) — O1.** Do not copy office-rag text either; reproduce conventions only. Use invented domains:
 
 - `tests/fixtures/rag_style/` — office-rag conventions, domain: **a community library lending app**.
   - `CLAUDE.md` (root) + `backend/CLAUDE.md` (nested), `docs/IDEA.md`, `docs/design-system.md`.
@@ -245,7 +245,7 @@ Severity order matters for `sdd doctor` (exit 1 on `error`). Keep the codes in o
     `> **Read first:** [SPEC-03 (whole file)](../../specs/SPEC-03-….md) · [SPEC-02 §3–4](../../specs/SPEC-02-database-schema.md#3-loans) · [SPEC-06 §2, §4–6](../../specs/SPEC-06-….md#2-…) · [SPEC-08 §4.6–4.7](../../specs/SPEC-08-….md#46-…) · [SPEC-11 §2](../../specs/SPEC-11-….md#2-…)`
     plus a test line like `- [ ] SPEC-03 §10 checks 3–9, 12 (…)`.
   - `docs/DEVIATIONS.md` with the rules, a fenced template containing `# D<nnn> — <title>` and a `` `> **DEVIATION:** see [D<nnn>](…)` `` inline-code example (must yield nothing), an empty index table; `docs/deviations/` empty (`.gitkeep`).
-- `tests/fixtures/suite_style/` — office-suite-v2 conventions, domain: **a plant nursery stock app** (invent every word).
+- `tests/fixtures/suite_style/` — private-repo-app conventions, domain: **a plant nursery stock app** (invent every word).
   - `docs/specs/SPEC-02-database-schema.md`: `> **Spec ID:** SPEC-02 · **Consumed by:** …` + `> **Related:** [SPEC-00 §6 conventions](SPEC-00-overview.md#6-…)`; `## 1. Identity ([SPEC-03](SPEC-03-….md))` with `### users`, `## 2. Files ([SPEC-18](…))` with `### attachments` (`| Column | Type | Notes |`, a row `| uploaded_by | uuid not null | → users [restrict] |`, a `ts` column) and `### file_shares`; a `## 13. Table → milestone map`. Include a nested `> > **DEVIATION:** see [D018](../deviations/D018-….md) — …` under one section and an indented-in-list `  > **DEVIATION:** see [D012](…)` under another.
   - Minimal `SPEC-00`, `SPEC-03`, `SPEC-06` (with `## 7.`), `SPEC-18` (with `## 5.`, `### 2.4`, `## 6. Acceptance checks`).
   - `docs/milestones/M17-<invented>.md`: multi-line Read first like `[SPEC-18 §5](…) (whole section) and` / `> [§2.4](…) (streaming) →` / `` > [SPEC-02 `file_shares`](…#file_shares) · ``; `**Depends on:** [M02](M02-….md) technically (scheduled after [M16](M16-….md)) · **Blocks:** nothing directly`; legacy `- [x]` tasks with continuation lines and nested plain bullets; a test line `- [x] [SPEC-18 §6](…) 6.`; `**Status: DONE (2026-11-01), with one open item.** … Deviations: [D021](../deviations/D021-….md).` followed by bullets.

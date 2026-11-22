@@ -1,7 +1,7 @@
 # SPEC-03 — Markdown parsing
 
 > **Status:** v1 (2026-11-21) · **Owner of:** which files are parsed, the spec-reference grammar, what each document type yields, task IDs, the Feature line, schema tables
-> Produces the nodes in [SPEC-02](SPEC-02-graph-schema.md). Reference formats: office-rag and office-suite-v2 (read-only; fixtures in `tests/fixtures/`).
+> Produces the nodes in [SPEC-02](SPEC-02-graph-schema.md). Reference formats: office-rag and private-repo-app (read-only; fixtures in `tests/fixtures/`).
 
 ## 1. Rules and configuration
 
