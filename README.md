@@ -184,7 +184,6 @@ This repo is built with the workflow it improves.
 | | |
 |---|---|
 | [docs/IDEA.md](docs/IDEA.md) | The locked idea: problem, users, scope, non-goals |
-| [HANDOFF.md](HANDOFF.md) | Background and verified Relate facts |
 | [docs/specs/](docs/specs/) | Source of truth. Start with [SPEC-00](docs/specs/SPEC-00-overview.md) (concepts and global conventions) |
 | [docs/milestones/](docs/milestones/) | Worked in number order, one at a time |
 | [docs/DEVIATIONS.md](docs/DEVIATIONS.md) | Mandatory log of every departure from the specs |
