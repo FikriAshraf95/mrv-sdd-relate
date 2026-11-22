@@ -20,6 +20,7 @@ import typer
 
 from sdd import __version__, config
 from sdd.errors import SddError
+from sdd.service import bench as bench_service
 from sdd.service import commands, indexing
 from sdd.service import info as info_service
 from sdd.service import init as init_service
@@ -1019,3 +1020,114 @@ def demo_serve(
         daemon_module.run(config.load(run, None), host=host, port=port)
     except SddError as err:
         fail(err, use_json)
+
+
+# ---------------------------------------------------------------- benchmark (M07)
+
+bench_app = typer.Typer(
+    help="Measure what the graph saves on a copy of the project (SPEC-10 §5).",
+    add_completion=False,
+    pretty_exceptions_enable=False,
+)
+app.add_typer(bench_app, name="bench")
+
+BenchOutOpt = Annotated[
+    Path, typer.Option("--out", help="Results folder (<date>.json and .md are written there).")
+]
+ExactOpt = Annotated[
+    bool, typer.Option("--exact", help="Count tokens with the Anthropic API (ANTHROPIC_API_KEY).")
+]
+
+
+def _bench_finish(settings: config.Settings, result: dict[str, Any], out: Path) -> None:
+    date = settings.now_iso()[:10]
+    js, md = bench_service.write_results({result["bench"]: result}, out, date)
+    typer.echo(f"\nresults: {js}\n         {md}")
+
+
+@bench_app.command("context")
+def bench_context(
+    ctx: typer.Context,
+    milestone: Annotated[
+        list[str] | None, typer.Option("--milestone", help="Only these milestones (repeatable).")
+    ] = None,
+    exact: ExactOpt = False,
+    out: BenchOutOpt = Path("bench/results"),
+    project: ProjectOpt = None,
+    store: StoreOpt = None,
+    as_json: JsonOpt = False,
+) -> None:
+    """Characters and tokens per task: Markdown token rule vs the two graph packets."""
+    settings, use_json = resolve(ctx, project, store, as_json)
+    result = _run(
+        use_json, lambda: bench_service.bench_context(settings.project_root, milestone, exact=exact)
+    )
+    if use_json:
+        return
+    typer.echo(f"{'task':<9}{'markdown':>10}{'milestone':>11}{'task':>8}")
+    for r in result["rows"]:
+        typer.echo(
+            f"{r['task']:<9}{r['markdown_chars']:>10}{r['milestone_chars']:>11}{r['task_chars']:>8}"
+        )
+    a = result["average"]
+    typer.echo(
+        f"{'average':<9}{a['markdown_chars']:>10.0f}{a['milestone_chars']:>11.0f}"
+        f"{a['task_chars']:>8.0f}  (tokens {result['tokens']})"
+    )
+    typer.echo(
+        f"saving: task packet {result['saving_task_pct']}%, "
+        f"milestone packet {result['saving_milestone_pct']}%"
+    )
+    _bench_finish(settings, result, out)
+
+
+@bench_app.command("restart")
+def bench_restart(
+    ctx: typer.Context,
+    exact: ExactOpt = False,
+    out: BenchOutOpt = Path("bench/results"),
+    project: ProjectOpt = None,
+    store: StoreOpt = None,
+    as_json: JsonOpt = False,
+) -> None:
+    """One what_changed vs re-reading the Markdown after a scripted set of edits."""
+    settings, use_json = resolve(ctx, project, store, as_json)
+    result = _run(use_json, lambda: bench_service.bench_restart(settings.project_root, exact=exact))
+    if use_json:
+        return
+    typer.echo(
+        f"re-read {len(result['baseline_files'])} files: {result['markdown_chars']} chars "
+        f"({result['markdown_tokens']} tokens)"
+    )
+    typer.echo(f"what_changed: {result['graph_chars']} chars ({result['graph_tokens']} tokens)")
+    typer.echo(f"saving: {result['saving_pct']}%")
+    _bench_finish(settings, result, out)
+
+
+@bench_app.command("collisions")
+def bench_collisions(
+    ctx: typer.Context,
+    agents: Annotated[int, typer.Option("--agents", help="Parallel agents.")] = 10,
+    tasks: Annotated[int, typer.Option("--tasks", help="Boxes to tick in total.")] = 30,
+    runs: Annotated[int, typer.Option("--runs", help="Repetitions.")] = 5,
+    out: BenchOutOpt = Path("bench/results"),
+    project: ProjectOpt = None,
+    store: StoreOpt = None,
+    as_json: JsonOpt = False,
+) -> None:
+    """Naive read-modify-write of one milestone file vs claim_task / complete_task."""
+    settings, use_json = resolve(ctx, project, store, as_json)
+    result = _run(use_json, lambda: bench_service.bench_collisions(agents, tasks, runs))
+    if use_json:
+        return
+    typer.echo(f"{'run':<5}{'naive lost':>11}{'graph double':>14}{'graph lost':>12}")
+    for r in result["runs"]:
+        typer.echo(
+            f"{r['run']:<5}{r['naive_lost_ticks']:>11}{r['graph_double_claims']:>14}"
+            f"{r['graph_lost_ticks']:>12}"
+        )
+    typer.echo(
+        f"total {result['naive_lost_ticks_total']:>10}{result['graph_double_claims_total']:>14}"
+        f"{result['graph_lost_ticks_total']:>12}"
+    )
+    _bench_finish(settings, result, out)

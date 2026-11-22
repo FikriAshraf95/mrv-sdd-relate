@@ -29,7 +29,7 @@
 | `sdd query CYPHER` | Read-only Cypher through the guard |
 | `sdd export …` | [§3](#3-exports-and-snapshots) |
 | `sdd snapshot [--out DIR]` | Checkpoint and write the committed copies ([§3](#3-exports-and-snapshots)) |
-| `sdd bench …` | [SPEC-10 §5](SPEC-10-testing-and-benchmark.md#5-benchmark) |
+| `sdd bench context [--milestone M]… [--exact]` · `sdd bench restart [--exact]` · `sdd bench collisions [--agents 10 --tasks 30 --runs 5]` — each `[--out DIR]` (default `bench/results`) | [SPEC-10 §5](SPEC-10-testing-and-benchmark.md#5-benchmark). Each bench works on a temporary copy of `--project`, prints its table and writes `<date>.json` and `.md` (benches run on one day share the files) |
 | `sdd demo prepare --sample DIR --data DIR` | Clone `<sample>.bundle` into `<data>/run` (a fresh git repository) and apply the start state of `<sample>/replay.toml` ([SPEC-11 §4](SPEC-11-deployment-and-demo.md#4-sprint-replay) step 1). Prints the path of the copy; `--json` prints `{run, unticked: {<milestone>: <boxes unticked>}}`. |
 | `sdd demo replay --sample DIR --data DIR [--seed N]` | Prepare, then run the simulated agents in a loop ([SPEC-11 §4](SPEC-11-deployment-and-demo.md#4-sprint-replay)) |
 | `sdd demo serve --sample DIR --data DIR [--host] [--port 8770]` | Prepare, then run the daemon on the copy. One command, so the judges' image can keep `ENTRYPOINT ["sdd"]` ([SPEC-11 §2](SPEC-11-deployment-and-demo.md#2-compose)) |

@@ -1,6 +1,6 @@
 # M99 — Release and submission
 
-> **Depends on:** [M07](M07-benchmark.md) (and [M08](M08-static-demo.md) if done) · **Blocks:** —
+> **Depends on:** [M07](done/M07-benchmark.md) (and [M08](M08-static-demo.md) if done) · **Blocks:** —
 > **Read first:** [SPEC-11 §8](../specs/SPEC-11-deployment-and-demo.md#8-submission-checklist-m99) · [SPEC-00 §7](../specs/SPEC-00-overview.md#7-success-criteria) · [SPEC-09 (whole file)](../specs/SPEC-09-security.md) · [DEVIATIONS](../DEVIATIONS.md) · [HANDOFF §1, §3, §6](../../HANDOFF.md#1-the-hackathon)
 > **Model:** Opus. Security sweep, folding deviations into specs, and the story for judges.
 

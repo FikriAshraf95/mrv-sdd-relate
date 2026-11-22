@@ -113,6 +113,8 @@ These apply everywhere. A rule here beats any other spec, and a conflict is a de
 6. The repo ships committed stores (a checkpointed snapshot directory + `.rl`, made by `sdd snapshot`; the live `.sdd/graph/` is never committed, [DEC-001](../decisions/DEC-001-committed-store.md)), Mermaid diagrams in the README, a live demo link and a static demo link.
 7. This repo's own docs index cleanly with its own tool (dogfooding), from M03b on.
 
+> **DEVIATION:** see [D007](../deviations/D007-sample-s-graph-packet-is-61-smaller-than-the-markdown-rule.md) — Sample's graph packet is 61% smaller than the Markdown rule, not 70%
+
 ## 8. Schedule and open items
 
 **Schedule** (deadline **Thu 2026-12-11, 18:00 PST** = Fri 12 Dec, 10:00 MYT; the user also has the office-rag presentation on Thu 26 Nov):

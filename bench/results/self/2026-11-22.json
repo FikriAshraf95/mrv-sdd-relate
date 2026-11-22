@@ -1,0 +1,199 @@
+{
+  "context": {
+    "average": {
+      "markdown_chars": 52954.0,
+      "markdown_tokens": 13239.1,
+      "milestone_chars": 25051.1,
+      "milestone_tokens": 6263.2,
+      "task_chars": 14853.7,
+      "task_tokens": 3713.8
+    },
+    "bench": "context",
+    "rows": [
+      {
+        "markdown_chars": 66361,
+        "markdown_tokens": 16591,
+        "milestone_chars": 29529,
+        "milestone_tokens": 7383,
+        "task": "M04b.1",
+        "task_chars": 9387,
+        "task_tokens": 2347
+      },
+      {
+        "markdown_chars": 66361,
+        "markdown_tokens": 16591,
+        "milestone_chars": 29529,
+        "milestone_tokens": 7383,
+        "task": "M04b.2",
+        "task_chars": 8851,
+        "task_tokens": 2213
+      },
+      {
+        "markdown_chars": 66361,
+        "markdown_tokens": 16591,
+        "milestone_chars": 30674,
+        "milestone_tokens": 7669,
+        "task": "M04b.3",
+        "task_chars": 9974,
+        "task_tokens": 2494
+      },
+      {
+        "markdown_chars": 66361,
+        "markdown_tokens": 16591,
+        "milestone_chars": 29544,
+        "milestone_tokens": 7386,
+        "task": "M04b.4",
+        "task_chars": 18374,
+        "task_tokens": 4594
+      },
+      {
+        "markdown_chars": 66361,
+        "markdown_tokens": 16591,
+        "milestone_chars": 29542,
+        "milestone_tokens": 7386,
+        "task": "M04b.5",
+        "task_chars": 29542,
+        "task_tokens": 7386
+      },
+      {
+        "markdown_chars": 66361,
+        "markdown_tokens": 16591,
+        "milestone_chars": 29539,
+        "milestone_tokens": 7385,
+        "task": "M04b.6",
+        "task_chars": 11241,
+        "task_tokens": 2811
+      },
+      {
+        "markdown_chars": 66361,
+        "markdown_tokens": 16591,
+        "milestone_chars": 32571,
+        "milestone_tokens": 8143,
+        "task": "M04b.7",
+        "task_chars": 11985,
+        "task_tokens": 2997
+      },
+      {
+        "markdown_chars": 66361,
+        "markdown_tokens": 16591,
+        "milestone_chars": 29540,
+        "milestone_tokens": 7385,
+        "task": "M04b.8",
+        "task_chars": 29540,
+        "task_tokens": 7385
+      },
+      {
+        "markdown_chars": 26095,
+        "markdown_tokens": 6524,
+        "milestone_chars": 15839,
+        "milestone_tokens": 3960,
+        "task": "M05a.1",
+        "task_chars": 10565,
+        "task_tokens": 2642
+      },
+      {
+        "markdown_chars": 26095,
+        "markdown_tokens": 6524,
+        "milestone_chars": 15853,
+        "milestone_tokens": 3964,
+        "task": "M05a.2",
+        "task_chars": 15853,
+        "task_tokens": 3964
+      },
+      {
+        "markdown_chars": 26095,
+        "markdown_tokens": 6524,
+        "milestone_chars": 15853,
+        "milestone_tokens": 3964,
+        "task": "M05a.3",
+        "task_chars": 15853,
+        "task_tokens": 3964
+      },
+      {
+        "markdown_chars": 26095,
+        "markdown_tokens": 6524,
+        "milestone_chars": 15853,
+        "milestone_tokens": 3964,
+        "task": "M05a.4",
+        "task_chars": 15853,
+        "task_tokens": 3964
+      },
+      {
+        "markdown_chars": 26095,
+        "markdown_tokens": 6524,
+        "milestone_chars": 15853,
+        "milestone_tokens": 3964,
+        "task": "M05a.5",
+        "task_chars": 15853,
+        "task_tokens": 3964
+      },
+      {
+        "markdown_chars": 26095,
+        "markdown_tokens": 6524,
+        "milestone_chars": 16927,
+        "milestone_tokens": 4232,
+        "task": "M05a.6",
+        "task_chars": 8993,
+        "task_tokens": 2249
+      },
+      {
+        "markdown_chars": 61937,
+        "markdown_tokens": 15485,
+        "milestone_chars": 25988,
+        "milestone_tokens": 6497,
+        "task": "M06b.1",
+        "task_chars": 25988,
+        "task_tokens": 6497
+      },
+      {
+        "markdown_chars": 61937,
+        "markdown_tokens": 15485,
+        "milestone_chars": 25985,
+        "milestone_tokens": 6497,
+        "task": "M06b.2",
+        "task_chars": 9504,
+        "task_tokens": 2376
+      },
+      {
+        "markdown_chars": 61937,
+        "markdown_tokens": 15485,
+        "milestone_chars": 30663,
+        "milestone_tokens": 7666,
+        "task": "M06b.3",
+        "task_chars": 15032,
+        "task_tokens": 3758
+      },
+      {
+        "markdown_chars": 61937,
+        "markdown_tokens": 15485,
+        "milestone_chars": 25991,
+        "milestone_tokens": 6498,
+        "task": "M06b.4",
+        "task_chars": 9656,
+        "task_tokens": 2414
+      },
+      {
+        "markdown_chars": 61937,
+        "markdown_tokens": 15485,
+        "milestone_chars": 25995,
+        "milestone_tokens": 6499,
+        "task": "M06b.5",
+        "task_chars": 12746,
+        "task_tokens": 3187
+      },
+      {
+        "markdown_chars": 61937,
+        "markdown_tokens": 15485,
+        "milestone_chars": 29754,
+        "milestone_tokens": 7439,
+        "task": "M06b.6",
+        "task_chars": 12284,
+        "task_tokens": 3071
+      }
+    ],
+    "saving_milestone_pct": 52.7,
+    "saving_task_pct": 71.9,
+    "tasks": 20,
+    "tokens": "chars/4"
+  }
+}

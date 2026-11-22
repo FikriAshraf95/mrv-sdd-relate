@@ -52,6 +52,7 @@ Open deviations are folded into the specs at M99 (and whenever one spec collects
 
 | # | Title | Milestone | Spec | Status |
 |---|---|---|---|---|
+| [D007](deviations/D007-sample-s-graph-packet-is-61-smaller-than-the-markdown-rule.md) | Sample's graph packet is 61% smaller than the Markdown rule, not 70% | M07 | [SPEC-00 §7](specs/SPEC-00-overview.md#7-success-criteria) | Open |
 | [D006](deviations/D006-guarded-queries-run-in-a-killable-worker-process-with-a.md) | Guarded queries run in a killable worker process with a memory cap | M06b | [SPEC-09 §3](specs/SPEC-09-security.md#3-query-guard) · [SPEC-01 §4](specs/SPEC-01-architecture.md#4-relate-access-and-concurrency) | Open |
 | [D005](deviations/D005-what-changed-bounds-are-inclusive.md) | what_changed bounds are inclusive | M03a | [SPEC-05 §7](specs/SPEC-05-agent-tools.md#7-what_changed) | Open |
 | [D004](deviations/D004-affects-may-name-project-files-that-have-no-file-node-yet.md) | Affects may name project files that have no File node yet | M03a | [SPEC-05 §5](specs/SPEC-05-agent-tools.md#5-log_deviation) | Resolved |

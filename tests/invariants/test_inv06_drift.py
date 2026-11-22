@@ -26,9 +26,7 @@ from tests.spec_tables import spec07_endpoints
 SPECS = Path(__file__).resolve().parents[2] / "docs" / "specs"
 
 PENDING_TOOLS: dict[str, str] = {}
-PENDING_COMMANDS = {
-    "bench": "M07",
-}
+PENDING_COMMANDS: dict[str, str] = {}
 
 
 def _section_text(spec_file: str, section_id: str) -> str:
