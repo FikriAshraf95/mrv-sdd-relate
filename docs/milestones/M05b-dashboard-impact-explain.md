@@ -1,6 +1,6 @@
 # M05b — Dashboard: Impact and Explain
 
-> **Depends on:** [M04b](done/M04b-schema-features-impact.md), [M05a](M05a-dashboard-core.md) · **Blocks:** [M06a](M06a-sample-and-exports.md)
+> **Depends on:** [M04b](done/M04b-schema-features-impact.md), [M05a](done/M05a-dashboard-core.md) · **Blocks:** [M06a](M06a-sample-and-exports.md)
 > **Read first:** [SPEC-07 §4–5](../specs/SPEC-07-dashboard-and-api.md#4-dashboard-views) · [SPEC-06 §2–3, §5](../specs/SPEC-06-code-context.md#2-impact)
 > **Model:** Sonnet. Two views over the M04b endpoints.
 > **Split from:** M05 (2026-11-21)
