@@ -1,26 +1,58 @@
-// Graph: Cytoscape over /api/graph with a label filter, search, side panel, expand and reset.
+// Graph tab: the whole graph in 3D (graph3d.js, loaded on demand) or 2D (graph2d.js, Cytoscape),
+// with a label filter, search, side panel, expand and reset. This module owns the data; the two
+// views only draw it, so the 2D/3D toggle keeps the selection and the expanded neighbours.
+// Hash: `#graph/3d`, `#graph/2d`, `#graph/<node id>`, `#graph/preset:<name>` (presets open in 2D).
 import { api } from "./api.js";
-import { DEFAULT_LABELS, LABELS, css, h, labelColor } from "./dom.js";
+import { DEFAULT_LABELS, LABELS, h, labelColor } from "./dom.js";
 import { PRESET_PREFIX, picker } from "./presets.js";
+import { failure, loading } from "./state.js";
+
+const LIMIT = 2000; // the endpoint's cap
+let lastMode = ""; // the mode this tab last showed, kept while the page lives
+
+function webgl() {
+  try {
+    const c = document.createElement("canvas");
+    return !!(c.getContext("webgl2") || c.getContext("webgl"));
+  } catch {
+    return false;
+  }
+}
 
 export function mount(el, arg) {
-  let cy = null;
-  const shown = new Set(DEFAULT_LABELS); // checked boxes
-  const loaded = new Set(DEFAULT_LABELS); // labels the server was asked for
-  let home = arg || "";
+  const canGL = webgl();
+  const isPreset = (arg || "").startsWith(PRESET_PREFIX);
+  let mode = canGL && lastMode !== "2d" ? "3d" : "2d";
+  if (arg === "2d" || arg === "3d") mode = arg;
+  if (isPreset) mode = "2d";
+  if (!canGL) mode = "2d";
+  let wanted = mode; // the mode last asked for; `mode` changes only when a build finishes
+  let focus = arg && arg !== "2d" && arg !== "3d" && !isPreset ? arg : "";
+
+  const shown = new Set(DEFAULT_LABELS);
+  const loaded = new Set(DEFAULT_LABELS);
+  const nodes = new Map();
+  const edges = new Map();
+  let view = null;
+  let selected = "";
+  let closed = false;
+  let building = 0;
 
   const search = h("input", { type: "search", placeholder: "ID or title", "aria-label": "Search" });
   const filters = h("div", { class: "filters" });
   const side = h("aside", { class: "side" }, h("span", { class: "muted" }, "Click a node. Double-click expands its neighbours."));
-  const canvas = h("div", { id: "cy" });
+  const stage = h("div", { class: "stage" }, loading());
+  const note = h("div", { class: "stagebar" });
   const err = h("div", { class: "err" });
   const reset = h("button", { type: "button" }, "Reset");
+  const b2 = h("button", { type: "button", "aria-pressed": "false" }, "2D");
+  const b3 = h("button", { type: "button", "aria-pressed": "false", disabled: !canGL, title: canGL ? "" : "3D needs WebGL, which this browser does not offer" }, "3D");
   const presets = picker((name) => loadPreset(name));
   el.append(
-    h("div", { class: "bar" }, h("h2", {}, "Graph"), search, reset, presets.el, h("span", { class: "grow" })),
+    h("div", { class: "bar" }, h("h2", {}, "Graph"), h("span", { class: "seg", role: "group", "aria-label": "Dimensions" }, b2, b3), search, reset, presets.el),
     h("div", { class: "bar" }, filters),
     err,
-    h("div", { class: "split" }, canvas, side),
+    h("div", { class: "split" }, h("div", { class: "stage-wrap" }, stage), side),
   );
 
   for (const label of LABELS) {
@@ -30,8 +62,11 @@ export function mount(el, arg) {
       else shown.delete(label);
       if (box.checked && !loaded.has(label)) {
         loaded.add(label); // never fetched (Agent): ask the server again
-        load(home);
-      } else applyFilter();
+        load();
+      } else {
+        if (view) view.setShown(shown);
+        counts();
+      }
     });
     filters.append(h("label", {}, box, h("span", { class: "swatch", "data-label": label }), label));
   }
@@ -40,70 +75,73 @@ export function mount(el, arg) {
     for (const s of filters.querySelectorAll(".swatch")) s.style.background = labelColor(s.dataset.label);
   }
 
-  function style() {
-    return [
-      {
-        selector: "node",
-        style: {
-          "background-color": (n) => labelColor(n.data("label")),
-          label: "data(short)",
-          color: css("--text"),
-          "font-size": 10,
-          "text-valign": "bottom",
-          "text-margin-y": 3,
-          "text-wrap": "ellipsis",
-          "text-max-width": 90,
-          width: 18,
-          height: 18,
-        },
-      },
-      {
-        selector: "edge",
-        style: {
-          width: 1,
-          "line-color": css("--line"),
-          "target-arrow-color": css("--muted"),
-          "target-arrow-shape": "triangle",
-          "curve-style": "bezier",
-          "arrow-scale": 0.7,
-        },
-      },
-      { selector: "node:selected", style: { "border-width": 3, "border-color": css("--accent") } },
-      { selector: ".hit", style: { "border-width": 3, "border-color": css("--warn") } },
-      { selector: ".hidden", style: { display: "none" } },
-    ];
+  function counts(extra = "") {
+    const n = [...nodes.values()].filter((x) => !LABELS.includes(x.label) || shown.has(x.label)).length;
+    const cap = nodes.size >= LIMIT ? ` · first ${LIMIT} nodes, filter labels to see others` : "";
+    const hint = mode === "3d" ? " · drag to orbit, scroll to zoom" : "";
+    note.textContent = `${n} nodes · ${edges.size} edges${cap}${extra}${hint}`;
   }
 
-  function applyFilter() {
-    if (!cy) return;
-    cy.nodes().forEach((n) => {
-      const known = LABELS.includes(n.data("label"));
-      n.toggleClass("hidden", known && !shown.has(n.data("label")));
-    });
+  function merge(data) {
+    for (const n of data.nodes) if (!nodes.has(n.id)) nodes.set(n.id, n);
+    for (const e of data.edges) edges.set(`${e.source}|${e.type}|${e.target}`, e);
   }
 
-  function add(data) {
-    const nodes = data.nodes.map((n) => ({
-      group: "nodes",
-      data: { id: n.id, label: n.label, title: n.title, short: n.id },
-    }));
-    const seen = new Set();
-    const edges = [];
-    for (const e of data.edges) {
-      const id = `${e.source}|${e.type}|${e.target}`;
-      if (seen.has(id)) continue;
-      seen.add(id);
-      edges.push({ group: "edges", data: { id, source: e.source, target: e.target, type: e.type } });
+  function draw() {
+    if (!view) return;
+    view.set([...nodes.values()], [...edges.values()]);
+    view.setShown(shown);
+    if (selected) view.select(selected);
+    counts();
+  }
+
+  async function build(next) {
+    const mine = ++building;
+    if (view) view.destroy();
+    view = null;
+    const host = h("div", { class: "host" });
+    stage.replaceChildren(host, note);
+    let made = null;
+    if (next === "3d") {
+      try {
+        made = (await import("./graph3d.js")).create(host, hooks);
+      } catch (x) {
+        next = wanted = "2d";
+        err.textContent = `3D view unavailable (${x.message}); showing 2D.`;
+        b3.disabled = true;
+      }
     }
-    const have = new Set(cy.nodes().map((n) => n.id()));
-    cy.add(nodes.filter((n) => !have.has(n.data.id)));
-    const ids = new Set(cy.nodes().map((n) => n.id()));
-    cy.add(
-      edges.filter((e) => cy.getElementById(e.data.id).empty() && ids.has(e.data.source) && ids.has(e.data.target)),
-    );
-    applyFilter();
-    cy.layout({ name: "cose", animate: false, fit: true, padding: 24 }).run();
+    if (mine !== building || closed) {
+      if (made) made.destroy();
+      return;
+    }
+    if (!made) made = (await import("./graph2d.js")).create(host, hooks);
+    if (mine !== building || closed) return made.destroy();
+    view = made;
+    mode = next;
+    lastMode = next;
+    b2.setAttribute("aria-pressed", String(next === "2d"));
+    b3.setAttribute("aria-pressed", String(next === "3d"));
+    draw();
   }
+
+  const hooks = {
+    onSelect(id) {
+      selected = id;
+      showNode(id);
+      history.replaceState(null, "", `#graph/${encodeURIComponent(id)}`);
+    },
+    async onExpand(id) {
+      try {
+        const more = await api.graph({ labels: [...loaded], focus: id, depth: 1, limit: 300 });
+        if (closed || !view) return;
+        merge(more);
+        draw();
+      } catch (x) {
+        if (!closed) err.textContent = x.message;
+      }
+    },
+  };
 
   async function showNode(id) {
     try {
@@ -133,80 +171,90 @@ export function mount(el, arg) {
     err.textContent = "";
     try {
       const data = await api.preset(name);
-      cy.elements().remove();
-      add(data);
+      if (closed) return;
+      nodes.clear();
+      edges.clear();
+      merge(data);
+      selected = "";
+      wanted = "2d";
+      if (mode !== "2d" || !view) await build("2d");
+      else draw();
+      if (closed) return;
       side.replaceChildren(h("h3", {}, name), h("span", { class: "muted small" }, `${data.nodes.length} nodes, ${data.edges.length} edges`));
       history.replaceState(null, "", `#graph/${encodeURIComponent(PRESET_PREFIX + name)}`);
     } catch (e) {
-      err.textContent = e.message;
+      if (!closed) err.textContent = e.message;
     }
   }
 
-  async function load(focus) {
+  // the whole graph (up to the cap); a deep-linked node outside it is fetched with its neighbours
+  async function load() {
     err.textContent = "";
-    if (focus.startsWith(PRESET_PREFIX)) return loadPreset(focus.slice(PRESET_PREFIX.length));
     try {
-      if (!focus) {
-        const b = await api.board();
-        focus = b.milestone ? b.milestone.id : "";
-      }
-      home = focus;
-      cy.elements().remove();
-      add(await api.graph({ labels: [...loaded], focus: focus || undefined, depth: 1, limit: 300 }));
-      if (focus) {
-        const n = cy.getElementById(focus);
-        if (n.nonempty()) {
-          n.select();
-          showNode(focus);
+      const all = await api.graph({ labels: [...loaded], limit: LIMIT });
+      if (closed) return;
+      nodes.clear();
+      edges.clear();
+      merge(all);
+      if (focus && !nodes.has(focus)) {
+        try {
+          merge(await api.graph({ labels: [...loaded], focus, depth: 1, limit: 300 }));
+        } catch (x) {
+          err.textContent = x.message; // a stale deep link: still show the whole graph
+          focus = "";
         }
+        if (closed) return;
       }
+      if (focus && nodes.has(focus)) {
+        selected = focus;
+        showNode(focus);
+      }
+      if (!view) await build(mode);
+      else draw();
+      if (selected && view) view.search(selected); // fly to the deep-linked node
     } catch (e) {
-      err.textContent = e.message;
+      if (closed) return;
+      // keep a drawn graph on screen and report in the error line; only an empty stage shows the state
+      if (view) err.textContent = e.message;
+      else stage.replaceChildren(failure(e.message));
     }
   }
 
-  function init() {
-    cy = cytoscape({ container: canvas, elements: [], style: style() });
-    cy.on("tap", "node", (e) => {
-      const id = e.target.id();
-      showNode(id);
-      history.replaceState(null, "", `#graph/${encodeURIComponent(id)}`); // keep the selection in the URL
-    });
-    cy.on("dbltap", "node", async (e) => {
-      try {
-        add(await api.graph({ labels: [...loaded], focus: e.target.id(), depth: 1, limit: 300 }));
-      } catch (x) {
-        err.textContent = x.message;
-      }
-    });
-    paintSwatches();
-    load(home);
-  }
+  const setMode = (next) => {
+    if (next === wanted || (next === "3d" && !canGL)) return;
+    wanted = next;
+    history.replaceState(null, "", `#graph/${next}`);
+    build(next);
+  };
+  b2.addEventListener("click", () => setMode("2d"));
+  b3.addEventListener("click", () => setMode("3d"));
 
   reset.addEventListener("click", () => {
     search.value = "";
+    selected = "";
+    focus = "";
     for (const set of [shown, loaded]) {
       set.clear();
       DEFAULT_LABELS.forEach((l) => set.add(l));
     }
     for (const b of filters.querySelectorAll("input")) b.checked = DEFAULT_LABELS.includes(b.getAttribute("aria-label"));
-    load("");
+    history.replaceState(null, "", `#graph/${mode}`);
+    side.replaceChildren(h("span", { class: "muted" }, "Click a node. Double-click expands its neighbours."));
+    load().then(() => view && view.reset());
   });
 
-  search.addEventListener("input", () => {
-    const q = search.value.trim().toLowerCase();
-    cy.nodes().removeClass("hit");
-    if (!q) return;
-    const hits = cy.nodes().filter((n) => n.id().toLowerCase().includes(q) || String(n.data("title")).toLowerCase().includes(q));
-    hits.addClass("hit");
-    if (hits.nonempty()) cy.animate({ fit: { eles: hits, padding: 60 }, duration: 200 });
-  });
+  search.addEventListener("input", () => view && view.search(search.value));
   search.addEventListener("keydown", async (e) => {
-    if (e.key !== "Enter") return;
+    if (e.key !== "Enter" || !view) return;
     const q = search.value.trim();
-    if (!q || cy.nodes(".hit").nonempty()) return;
+    if (!q || view.search(q)) return;
     try {
-      add(await api.graph({ labels: [...loaded], focus: q, depth: 1, limit: 300 })); // an exact ID not on screen yet
+      const more = await api.graph({ labels: [...loaded], focus: q, depth: 1, limit: 300 }); // an exact ID not on screen yet
+      if (closed || !view) return;
+      merge(more);
+      selected = q;
+      draw();
+      view.search(q);
       showNode(q);
     } catch (x) {
       err.textContent = x.message;
@@ -215,15 +263,18 @@ export function mount(el, arg) {
 
   const onTheme = () => {
     paintSwatches();
-    if (cy) cy.style(style());
+    if (view) view.restyle();
   };
   window.addEventListener("themechange", onTheme);
-  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", onTheme);
-  init();
+  paintSwatches();
+  if (isPreset) {
+    build("2d").then(() => loadPreset(arg.slice(PRESET_PREFIX.length)));
+  } else load();
 
   return () => {
+    closed = true;
     window.removeEventListener("themechange", onTheme);
-    matchMedia("(prefers-color-scheme: dark)").removeEventListener("change", onTheme);
-    if (cy) cy.destroy();
+    if (view) view.destroy();
+    view = null;
   };
 }

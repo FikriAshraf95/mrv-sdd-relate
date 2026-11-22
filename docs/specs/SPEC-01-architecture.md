@@ -91,7 +91,7 @@ Enforced by `import-linter` contracts in CI. `relate` appears only in `graph/sto
 
 ## 6. Dependencies
 
-Runtime: `relate-db` (≥ 1.2), `mcp` (≥ 2.3, 2.x API), `starlette`, `uvicorn`, `sse-starlette`, `markdown-it-py`, `watchdog`, `pathspec`, `typer`, `pydantic` (v2, for tool and API schemas). Dev: `pytest`, `pytest-socket`, `ruff`, `mypy`, `import-linter`. Git is called as the `git` CLI (no GitPython). Dashboard: vendored `cytoscape.min.js` (no CDN at runtime, so the hosted demo has no third-party calls).
+Runtime: `relate-db` (≥ 1.2), `mcp` (≥ 2.3, 2.x API), `starlette`, `uvicorn`, `sse-starlette`, `markdown-it-py`, `watchdog`, `pathspec`, `typer`, `pydantic` (v2, for tool and API schemas). Dev: `pytest`, `pytest-socket`, `ruff`, `mypy`, `import-linter`. Git is called as the `git` CLI (no GitPython). Dashboard: vendored `cytoscape.min.js`, three.js, d3-force-3d (with its d3 dependencies) and the Inter and JetBrains Mono fonts, pinned by version and sha512 in `vendor/MANIFEST.json` (no CDN at runtime, so the hosted demo has no third-party calls).
 
 Licences must be permissive (MIT, Apache-2.0, BSD). Relate is Apache-2.0.
 

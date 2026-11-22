@@ -1,7 +1,7 @@
 // Impact: a target box with autocomplete, grouped lists, and a graph with the target in the centre.
 // Clicking an item highlights the `via` chain that connects it to the target.
 import { api } from "./api.js";
-import { chainOf, cyStyle, elementsOf } from "./cystyle.js";
+import { ZOOM, chainOf, cyStyle, declutter, elementsOf, smoothZoom } from "./cystyle.js";
 import { h, labelColor } from "./dom.js";
 
 const GROUPS = [
@@ -68,7 +68,7 @@ export function mount(el, arg) {
     lists.replaceChildren();
     for (const [key, title] of GROUPS) {
       const items = data.groups[key] || [];
-      const head = h("h3", {}, `${title} `, h("span", { class: "muted small" }, String(data.counts[key] ?? items.length)));
+      const head = h("h3", {}, title, h("span", { class: "pill" }, String(data.counts[key] ?? items.length)));
       const body = h("div", { class: "items" }, items.slice(0, SHOWN).map((it) => item(key, it)));
       const box = h("section", { class: "group", "data-group": key }, head, body);
       if (!items.length) box.append(h("div", { class: "muted small" }, "none"));
@@ -108,14 +108,19 @@ export function mount(el, arg) {
 
   function draw(graph, targetId) {
     if (cy) cy.destroy();
-    cy = cytoscape({ container: canvas, elements: elementsOf(graph), style: cyStyle() });
+    cy = cytoscape({ container: canvas, elements: elementsOf(graph), style: cyStyle(), ...ZOOM });
+    smoothZoom(cy);
     cy.getElementById(targetId).addClass("target");
+    // a wide impact (a hub table reaches 100+ nodes) gets small nodes and labels on hubs only; the
+    // target always keeps its label
+    if (declutter(cy, 60, 10)) cy.getElementById(targetId).removeClass("nolabel");
     cy.layout({
       name: "breadthfirst",
       roots: cy.getElementById(targetId),
       circle: true,
       directed: false,
-      spacingFactor: 1.1,
+      spacingFactor: 1.5,
+      avoidOverlap: true,
       animate: false,
       fit: true,
       padding: 24,

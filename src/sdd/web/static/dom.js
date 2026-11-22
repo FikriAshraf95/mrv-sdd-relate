@@ -24,7 +24,7 @@ export function inline(text) {
 export function agentColor(name) {
   let n = 0;
   for (const c of String(name)) n = (n * 31 + c.charCodeAt(0)) % 360;
-  return `hsl(${n} 55% 38%)`;
+  return `hsl(${n} 52% 42%)`;
 }
 
 export function css(name) {

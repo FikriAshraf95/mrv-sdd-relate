@@ -1,6 +1,6 @@
 // Query: a read-only Cypher box, example queries, a results table and "Show as graph".
 import { api } from "./api.js";
-import { cyStyle, elementsOf } from "./cystyle.js";
+import { ZOOM, cyStyle, elementsOf, smoothZoom } from "./cystyle.js";
 import { h } from "./dom.js";
 import { picker } from "./presets.js";
 
@@ -58,7 +58,9 @@ export function mount(el) {
       elements: elementsOf(data),
       layout: { name: "cose", animate: false, padding: 24 },
       style: cyStyle(),
+      ...ZOOM,
     });
+    smoothZoom(cy);
   }
 
   // Presets-only mode (public process with SDD_PUBLIC_QUERY=presets, SPEC-09 §2 rule 5): the box is

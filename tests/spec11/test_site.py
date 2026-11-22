@@ -76,6 +76,9 @@ def test_spec11_ac05_static_site_impact_centrepiece(site: Path) -> None:
     assert (site / ".nojekyll").is_file()
     assert (site / "static.js").is_file()
     assert (site / "relate-worker.js").is_file()
+    graph_files = ("graph3d.js", "graph2d.js", "graph-layout.worker.js", "vendor/MANIFEST.json")
+    for name in (*graph_files, "vendor/three/three.module.js"):
+        assert (site / name).is_file(), name
     assert not (site / "wasm").exists()
 
 

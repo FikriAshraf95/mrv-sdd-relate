@@ -7,6 +7,9 @@ checked from Python: what is served, what the files reference and the API calls 
 
 from __future__ import annotations
 
+import base64
+import hashlib
+import json
 import re
 
 from starlette.testclient import TestClient
@@ -28,6 +31,11 @@ _OWN = {
     "impact.js",
     "explain.js",
     "presets.js",
+    "theme.js",
+    "state.js",
+    "graph2d.js",
+    "graph3d.js",
+    "graph-layout.worker.js",
 }
 
 
@@ -68,8 +76,16 @@ def test_every_asset_the_page_references_is_served(app: TestClient) -> None:
     assert {"style.css", "app.js", "vendor/cytoscape.min.js", "favicon.svg"} <= set(refs)
     for ref in refs:
         assert app.get(f"/{ref}").status_code == 200, ref
-    imports = re.findall(r'from "\./([^"]+)"', "".join(_own_text().values()))
-    assert imports
+    # static imports, lazy `import("./x.js")` and `new URL("./x.js", import.meta.url)` (workers)
+    texts = _own_text()
+    imports = re.findall(r'(?:from |import\(|new URL\()\s*"\./([^"]+)"', "".join(texts.values()))
+    imports += re.findall(r'new URL\(\s*"([^"./][^"]*\.js)"', texts["graph3d.js"])
+    imports = [
+        i for i in imports if not i.startswith("wasm/")
+    ]  # built by sdd site, not served here
+    assert "graph3d.js" in imports
+    assert "graph-layout.worker.js" in imports
+    assert "vendor/three/three.module.js" in imports
     for ref in imports:
         assert app.get(f"/{ref}").status_code == 200, ref
 
@@ -203,3 +219,59 @@ def test_dashboard_needs_no_inline_style_under_the_public_csp() -> None:
     assert " style=" not in html
     css = (STATIC_DIR / "style.css").read_text(encoding="utf-8")
     assert ".__________cytoscape_container" in css
+
+
+def test_vendor_manifest_lists_every_file_with_a_licence() -> None:
+    """M09.1/M09.7: every vendored file is pinned in MANIFEST.json by version and sha512, and every
+    package ships its licence."""
+    vendor = STATIC_DIR / "vendor"
+    manifest = json.loads((vendor / "MANIFEST.json").read_text(encoding="utf-8"))
+    listed: set[str] = set()
+    for pkg in manifest:
+        assert re.fullmatch(r"\d+\.\d+\.\d+", pkg["version"]), pkg["package"]
+        assert len(pkg["sha512"]) == 88, pkg["package"]  # base64 of 64 bytes
+        assert (vendor / pkg["licence_file"]).is_file(), pkg["package"]
+        listed |= {*pkg["files"], pkg["licence_file"]}
+    actual = {p.relative_to(vendor).as_posix() for p in vendor.rglob("*") if p.is_file()}
+    assert actual - {"MANIFEST.json"} == listed
+    names = {p["package"] for p in manifest}
+    assert {"three", "d3-force-3d", "cytoscape", "@fontsource/inter"} <= names
+    # the hand-vendored file is checkable offline: its row is the hash of the file itself
+    cytoscape = next(p for p in manifest if p["package"] == "cytoscape")
+    data = (vendor / "cytoscape.min.js").read_bytes()
+    assert base64.b64encode(hashlib.sha512(data).digest()).decode() == cytoscape["sha512"]
+    assert f'"{cytoscape["version"]}"'.encode() in data
+
+
+def test_vendored_modules_import_only_relative_paths() -> None:
+    # an import map would be an inline <script>; bare specifiers would not resolve at all
+    vendor = STATIC_DIR / "vendor"
+    forms = (
+        r"^\s*(?:import|export|\})[^\n'\"]*from\s+['\"]([^'\"]+)['\"]",  # import/export ... from
+        r"^\s*import\s+['\"]([^'\"]+)['\"]",  # side-effect import
+        r"^[^\n*/]*\bimport\(\s*['\"]([^'\"]+)['\"]",  # dynamic import, not in a comment
+    )
+    for path in [*vendor.glob("three/*.js"), *vendor.glob("d3-*/*.js")]:
+        text = path.read_text(encoding="utf-8")
+        for form in forms:
+            for spec in re.findall(form, text, re.M):
+                assert spec.startswith("."), (path.name, spec)
+
+
+def test_three_js_is_loaded_lazily() -> None:
+    """The Board stays light: only the Graph tab's dynamic import() pulls in three.js."""
+    texts = _own_text()
+    for name, text in texts.items():
+        if name in {"graph3d.js", "graph-layout.worker.js"}:
+            continue
+        assert "vendor/three/" not in text, name
+        assert not re.search(r"from\s+['\"]\./graph3d\.js", text), name
+        assert "<script" not in text or "graph3d" not in text, name
+    assert 'import("./graph3d.js")' in texts["graph.js"]
+
+
+def test_graph_modules_stay_off_the_network_and_markup() -> None:
+    for name in ("graph3d.js", "graph-layout.worker.js", "graph2d.js"):
+        text = _own_text()[name]
+        assert not re.search(r"\b(?:fetch|XMLHttpRequest|WebSocket)\b", text), name
+    assert "api." not in _own_text()["graph3d.js"]  # data arrives by call, not by request

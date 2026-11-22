@@ -1,0 +1,150 @@
+[
+  {
+    "package": "three",
+    "version": "0.187.0",
+    "sha512": "Qiu7R+Cmh8CstZsY1uJOSWnVlfo7ZtNLV7mF8Jltk3LB3AtDu9cRZlcnRKkAk8Y4z6KKw35z7Y7Urd7jWY8etA==",
+    "licence": "MIT",
+    "files": [
+      "three/CSS2DRenderer.js",
+      "three/OrbitControls.js",
+      "three/three.core.js",
+      "three/three.module.js"
+    ],
+    "licence_file": "three/LICENSE"
+  },
+  {
+    "package": "d3-force-3d",
+    "version": "3.0.6",
+    "sha512": "4tsKHUPLOVkyfEffZo1v6sFHvGFwAIIjt/W8IThbp08DYAsXZck+2pSHEG5W1+gQgEvFLdZkYvmJAbRM2EzMnA==",
+    "licence": "MIT",
+    "files": [
+      "d3-force-3d/center.js",
+      "d3-force-3d/collide.js",
+      "d3-force-3d/constant.js",
+      "d3-force-3d/index.js",
+      "d3-force-3d/jiggle.js",
+      "d3-force-3d/lcg.js",
+      "d3-force-3d/link.js",
+      "d3-force-3d/manyBody.js",
+      "d3-force-3d/radial.js",
+      "d3-force-3d/simulation.js",
+      "d3-force-3d/x.js",
+      "d3-force-3d/y.js",
+      "d3-force-3d/z.js"
+    ],
+    "licence_file": "d3-force-3d/LICENSE"
+  },
+  {
+    "package": "d3-binarytree",
+    "version": "1.0.2",
+    "sha512": "cElUNH+sHu95L04m92pG73t2MEJXKu+GeKUN1TJkFsu93E5W8E9Sc3kHEGJKgenGvj19m6upSn2EunvMgMD2Yw==",
+    "licence": "MIT",
+    "files": [
+      "d3-binarytree/add.js",
+      "d3-binarytree/binarytree.js",
+      "d3-binarytree/cover.js",
+      "d3-binarytree/data.js",
+      "d3-binarytree/extent.js",
+      "d3-binarytree/find.js",
+      "d3-binarytree/half.js",
+      "d3-binarytree/index.js",
+      "d3-binarytree/remove.js",
+      "d3-binarytree/root.js",
+      "d3-binarytree/size.js",
+      "d3-binarytree/visit.js",
+      "d3-binarytree/visitAfter.js",
+      "d3-binarytree/x.js"
+    ],
+    "licence_file": "d3-binarytree/LICENSE"
+  },
+  {
+    "package": "d3-octree",
+    "version": "1.1.0",
+    "sha512": "F8gPlqpP+HwRPMO/8uOu5wjH110+6q4cgJvgJT6vlpy3BEaDIKlTZrgHKZSp/i1InRpVfh4puY/kvL6MxK930A==",
+    "licence": "MIT",
+    "files": [
+      "d3-octree/add.js",
+      "d3-octree/cover.js",
+      "d3-octree/data.js",
+      "d3-octree/extent.js",
+      "d3-octree/find.js",
+      "d3-octree/findAll.js",
+      "d3-octree/index.js",
+      "d3-octree/octant.js",
+      "d3-octree/octree.js",
+      "d3-octree/remove.js",
+      "d3-octree/root.js",
+      "d3-octree/size.js",
+      "d3-octree/visit.js",
+      "d3-octree/visitAfter.js",
+      "d3-octree/x.js",
+      "d3-octree/y.js",
+      "d3-octree/z.js"
+    ],
+    "licence_file": "d3-octree/LICENSE"
+  },
+  {
+    "package": "d3-dispatch",
+    "version": "3.0.2",
+    "sha512": "sAzH4Y4nsLo8eSqw5jKiZt+LU2wZmL/qS+OkxQGjhwazB/D7TY34R/QK1eshfGr7cZEKymKZ/Haem7m+lu98Sg==",
+    "licence": "ISC",
+    "files": [
+      "d3-dispatch/index.js"
+    ],
+    "licence_file": "d3-dispatch/LICENSE"
+  },
+  {
+    "package": "d3-quadtree",
+    "version": "3.0.2",
+    "sha512": "9Lu9mqJKRbIk0d6mKDjpvPURaPdwHVK5CYbcdd0/4vBgz4ldz/7TIOse3kNERsByGNfld58KEco507AztJWyTQ==",
+    "licence": "ISC",
+    "files": [
+      "d3-quadtree/index.js"
+    ],
+    "licence_file": "d3-quadtree/LICENSE"
+  },
+  {
+    "package": "d3-timer",
+    "version": "3.0.2",
+    "sha512": "1Il1aliroVSErrv5aulRBxAY+7+DnaoLIWGd1C6SsBTWDeobWiP/V69vwb8vT6abR1kKwaNe1196pmaQ1fK90A==",
+    "licence": "ISC",
+    "files": [
+      "d3-timer/index.js"
+    ],
+    "licence_file": "d3-timer/LICENSE"
+  },
+  {
+    "package": "@fontsource/inter",
+    "version": "5.3.0",
+    "sha512": "RofMylZmjlJEfELXeNHFWBRcSs75rGU/6bV2S2jfnvv/3rPXPGe0LgUJTklcHZ9lM4OZmAVFhcJPnACfb91A3g==",
+    "licence": "OFL-1.1",
+    "files": [
+      "fonts/inter-latin-400-normal.woff2",
+      "fonts/inter-latin-500-normal.woff2",
+      "fonts/inter-latin-600-normal.woff2"
+    ],
+    "licence_file": "fonts/LICENSE-inter.txt"
+  },
+  {
+    "package": "@fontsource/jetbrains-mono",
+    "version": "5.3.0",
+    "sha512": "fqDfB5I9f1p1TV486aUgB9t8zP84P0O1FtQR5Ol9vjwPy+S+EIGlVYm1cvj2W5shcZMTg2nZFdVMoH5wFu8a1A==",
+    "licence": "OFL-1.1",
+    "files": [
+      "fonts/jetbrains-mono-latin-400-normal.woff2",
+      "fonts/jetbrains-mono-latin-500-normal.woff2",
+      "fonts/jetbrains-mono-latin-600-normal.woff2"
+    ],
+    "licence_file": "fonts/LICENSE-jetbrains-mono.txt"
+  },
+  {
+    "package": "cytoscape",
+    "version": "3.30.2",
+    "sha512": "EY3U1MWdgKx0P1dqTE4inlKz2cpXtWpsR1YUyD855Hs6RL/A0cyvrKh60EpE8wDZ814cTe1KgRK+sG0Rn792vQ==",
+    "licence": "MIT",
+    "files": [
+      "cytoscape.min.js"
+    ],
+    "licence_file": "LICENSE-cytoscape.txt"
+  }
+]

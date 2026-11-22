@@ -1,7 +1,7 @@
 // Explain: a searchable file tree, the summary paragraph, and the chain feature -> spec -> tasks and
 // commits -> deviations as a left-to-right layered graph.
 import { api } from "./api.js";
-import { cyStyle, elementsOf } from "./cystyle.js";
+import { ZOOM, cyStyle, elementsOf, smoothZoom } from "./cystyle.js";
 import { h } from "./dom.js";
 
 // Column of each label, left to right.
@@ -115,7 +115,8 @@ export function mount(el, arg) {
         graph = { nodes: [], edges: [] };
       }
       if (cy) cy.destroy();
-      cy = cytoscape({ container: canvas, elements: elementsOf(graph), style: cyStyle() });
+      cy = cytoscape({ container: canvas, elements: elementsOf(graph), style: cyStyle(), ...ZOOM });
+      smoothZoom(cy);
       cy.getElementById(res.file.id).addClass("target");
       const pos = layout(cy.nodes());
       cy.layout({ name: "preset", positions: (n) => pos[n.id()], fit: true, padding: 24, animate: false }).run();

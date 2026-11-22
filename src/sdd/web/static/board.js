@@ -8,7 +8,16 @@ const COLUMNS = [
   ["done", "Done"],
 ];
 const POLL_MS = 5000;
-const TICKER_MAX = 6;
+const TICKER_MAX = 5;
+const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// "now", "12s ago", "3m ago", "2h ago"
+function ago(t) {
+  const s = Math.max(0, Math.round((Date.now() - t) / 1000));
+  if (s < 5) return "now";
+  if (s < 60) return `${s}s ago`;
+  return s < 3600 ? `${Math.floor(s / 60)}m ago` : `${Math.floor(s / 3600)}h ago`;
+}
 
 export function mount(el, arg) {
   let milestone = arg || "";
@@ -21,6 +30,7 @@ export function mount(el, arg) {
 
   const picker = h("select", { "aria-label": "Milestone" });
   const counts = h("div", { class: "counts" });
+  const bar = h("i");
   const liveEl = h("span", { class: "live small muted" });
   // Replay exists only in the static demo (api.replay): the recorded sprint plays on this board.
   const replayBtn = api.replay ? h("button", { type: "button", class: "primary" }, "Replay") : null;
@@ -28,14 +38,20 @@ export function mount(el, arg) {
   const ticker = h("ul", { class: "ticker", "aria-label": "Recent events" });
   const err = h("div", { class: "err" });
   el.append(
-    h("div", { class: "bar" }, h("h2", {}, "Board"), picker, counts, h("span", { class: "grow" }), replayBtn, liveEl),
+    h("div", { class: "bar" }, h("h2", {}, "Board"), h("div", { class: "pick" }, picker, h("div", { class: "progress", "aria-hidden": "true" }, bar)), counts, h("span", { class: "grow" }), replayBtn, liveEl),
     err,
     cols,
     ticker,
   );
 
+  let progress = new Map(); // milestone id -> done / total
+  const paintProgress = () => {
+    bar.style.width = `${Math.round(100 * (progress.get(picker.value) || 0))}%`;
+  };
+
   picker.addEventListener("change", () => {
     milestone = picker.value;
+    paintProgress();
     previous = new Map();
     location.hash = `#board/${encodeURIComponent(milestone)}`;
   });
@@ -69,6 +85,8 @@ export function mount(el, arg) {
       }
     }
     previous = now;
+    // FLIP: remember where each card was, redraw, then slide the ones that moved from there
+    const first = new Map([...cols.querySelectorAll(".card")].map((c) => [c.dataset.task, c.getBoundingClientRect()]));
     cols.replaceChildren(
       ...COLUMNS.map(([key, title]) => {
         const tasks = (data.columns[key] || []).map((t) => ({ ...t, status: key }));
@@ -86,6 +104,20 @@ export function mount(el, arg) {
       ),
     );
     for (const c of cols.querySelectorAll(".flash")) setTimeout(() => c.classList.remove("flash"), 1500);
+    if (!reduced()) {
+      for (const c of cols.querySelectorAll(".card")) {
+        const was = first.get(c.dataset.task);
+        if (!was || !moved.has(c.dataset.task)) continue;
+        const now = c.getBoundingClientRect();
+        c.style.transition = "none";
+        c.style.transform = `translate(${was.left - now.left}px, ${was.top - now.top}px)`;
+        c.getBoundingClientRect(); // commit the start position
+        requestAnimationFrame(() => {
+          c.style.transition = "transform 180ms ease, background 1.5s";
+          c.style.transform = "";
+        });
+      }
+    }
   }
 
   let seq = 0;
@@ -97,11 +129,22 @@ export function mount(el, arg) {
       err.textContent = "";
       if (data.milestone && !milestone) milestone = data.milestone.id;
       if (data.milestone) picker.value = data.milestone.id;
+      if (data.milestone) {
+        // from the columns just drawn, so the bar moves with the cards in daemon mode too
+        const n = COLUMNS.reduce((sum, [key]) => sum + (data.columns[key] || []).length, 0);
+        progress.set(data.milestone.id, n ? (data.columns.done || []).length / n : 0);
+      }
+      paintProgress();
       draw(data);
     } catch (e) {
       err.textContent = e.message;
     }
   }
+
+  function drawTicker() {
+    ticker.replaceChildren(...events.map((e) => h("li", {}, h("time", {}, ago(e.t)), h("span", {}, e.text))));
+  }
+  const tick = setInterval(drawTicker, 15000);
 
   function note(type, d) {
     if (type === "graph_changed") return;
@@ -111,9 +154,9 @@ export function mount(el, arg) {
         : type === "deviation"
           ? `${d.id} logged: ${d.title}`
           : `${d.id} ${d.status}`;
-    events.unshift(`${new Date().toLocaleTimeString()}  ${text}`);
+    events.unshift({ t: Date.now(), text });
     events.length = Math.min(events.length, TICKER_MAX);
-    ticker.replaceChildren(...events.map((e) => h("li", {}, e)));
+    drawTicker();
   }
 
   function setLive(on) {
@@ -132,7 +175,7 @@ export function mount(el, arg) {
     (type, d) => {
       note(type, d);
       if (type !== "deviation") refresh();
-      if (api.isStatic && type !== "deviation") loadPicker(); // the replay changes the counts
+      if (type !== "deviation") loadPicker(); // the (done/total) in the picker follows the cards
     },
     (on) => {
       if (closed) return;
@@ -150,7 +193,9 @@ export function mount(el, arg) {
         picker.replaceChildren(
           ...list.map((m) => new Option(`${m.id} · ${m.title} (${m.done}/${m.total})`, m.id)),
         );
+        progress = new Map(list.map((m) => [m.id, m.total ? m.done / m.total : 0]));
         if (milestone) picker.value = milestone;
+        paintProgress();
       })
       .catch(() => {});
   loadPicker().finally(refresh);
@@ -195,5 +240,6 @@ export function mount(el, arg) {
     stopEnd();
     stop();
     clearInterval(timer);
+    clearInterval(tick);
   };
 }

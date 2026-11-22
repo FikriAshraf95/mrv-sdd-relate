@@ -1,5 +1,6 @@
 // Shell: five tabs, hash routing (`#tab/<encoded id>`), theme toggle. Views live in their own
 // modules and export `mount(el, arg) -> cleanup | undefined`.
+import { toggleTheme } from "./theme.js"; // its import applies data-theme before the views paint
 import { api, getToken, onUnauthorized, setToken } from "./api.js";
 import * as board from "./board.js";
 import { h } from "./dom.js";
@@ -99,26 +100,8 @@ forget.addEventListener("click", (e) => {
 });
 syncForget();
 
-// Theme: follows the system until the toggle is used.
-const root = document.documentElement;
-try {
-  const saved = localStorage.getItem("sdd-theme");
-  if (saved) root.dataset.theme = saved;
-} catch {
-  /* storage blocked */
-}
-document.getElementById("theme").addEventListener("click", () => {
-  const dark =
-    root.dataset.theme === "dark" ||
-    (!root.dataset.theme && matchMedia("(prefers-color-scheme: dark)").matches);
-  root.dataset.theme = dark ? "light" : "dark";
-  try {
-    localStorage.setItem("sdd-theme", root.dataset.theme);
-  } catch {
-    /* storage blocked */
-  }
-  window.dispatchEvent(new Event("themechange"));
-});
+// Theme: dark unless chosen otherwise (theme.js).
+document.getElementById("theme").addEventListener("click", toggleTheme);
 
 api
   .health()
