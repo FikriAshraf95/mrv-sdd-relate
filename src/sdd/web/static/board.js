@@ -48,7 +48,7 @@ export function mount(el, arg) {
         { class: "meta" },
         t.group ? h("span", { class: "tag" }, t.group) : null,
         t.claimed_by
-          ? h("span", { class: "chip", style: `background:${agentColor(t.claimed_by)}` }, t.claimed_by)
+          ? h("span", { class: "chip", style: { background: agentColor(t.claimed_by) } }, t.claimed_by)
           : null,
         t.status === "done" && t.completed_by && t.completed_by !== t.claimed_by
           ? h("span", { class: "tag" }, `done by ${t.completed_by}`)
@@ -86,9 +86,12 @@ export function mount(el, arg) {
     for (const c of cols.querySelectorAll(".flash")) setTimeout(() => c.classList.remove("flash"), 1500);
   }
 
+  let seq = 0;
   async function refresh() {
+    const mine = ++seq;
     try {
       const data = await api.board(milestone || undefined);
+      if (mine !== seq) return; // a newer refresh is in flight
       err.textContent = "";
       if (data.milestone && !milestone) milestone = data.milestone.id;
       if (data.milestone) picker.value = data.milestone.id;
@@ -112,7 +115,7 @@ export function mount(el, arg) {
   }
 
   function setLive(on) {
-    // EventSource retries report an error each time; do not restart the poll timer for those
+    // stream retries report an error each time; do not restart the poll timer for those
     if (on === live && started) return;
     started = true;
     live = on;

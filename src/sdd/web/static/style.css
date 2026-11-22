@@ -4,6 +4,7 @@
   --l-Spec: #2563eb; --l-Section: #60a5fa; --l-Milestone: #7c3aed; --l-Task: #0d9488;
   --l-Deviation: #dc2626; --l-File: #64748b; --l-Commit: #a16207; --l-Feature: #db2777;
   --l-Domain: #ea580c; --l-Table: #15803d; --l-Column: #65a30d; --l-Agent: #0891b2;
+  --l-AcceptanceCheck: #0ea5e9; --l-Doc: #8b5cf6; --l-Folder: #475569;
   --l-other: #94a3b8;
 }
 :root[data-theme="dark"] {
@@ -12,6 +13,7 @@
   --l-Spec: #60a5fa; --l-Section: #93c5fd; --l-Milestone: #a78bfa; --l-Task: #2dd4bf;
   --l-Deviation: #f87171; --l-File: #94a3b8; --l-Commit: #facc15; --l-Feature: #f472b6;
   --l-Domain: #fb923c; --l-Table: #4ade80; --l-Column: #a3e635; --l-Agent: #22d3ee;
+  --l-AcceptanceCheck: #38bdf8; --l-Doc: #c4b5fd; --l-Folder: #94a3b8;
   --l-other: #64748b;
 }
 @media (prefers-color-scheme: dark) {
@@ -21,6 +23,7 @@
     --l-Spec: #60a5fa; --l-Section: #93c5fd; --l-Milestone: #a78bfa; --l-Task: #2dd4bf;
     --l-Deviation: #f87171; --l-File: #94a3b8; --l-Commit: #facc15; --l-Feature: #f472b6;
     --l-Domain: #fb923c; --l-Table: #4ade80; --l-Column: #a3e635; --l-Agent: #22d3ee;
+    --l-AcceptanceCheck: #38bdf8; --l-Doc: #c4b5fd; --l-Folder: #94a3b8;
     --l-other: #64748b;
   }
 }
@@ -59,6 +62,9 @@ button.ghost { background: none; }
 h2 { margin: 0 0 4px; font-size: 20px; }
 .bar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 12px; }
 .grow { flex: 1; min-width: 0; }
+.bar select, .bar input { max-width: 100%; min-width: 0; }
+.mt { margin-top: 8px; }
+.cypher-wrap { min-width: 0; }
 
 /* board */
 .counts { display: flex; gap: 14px; }

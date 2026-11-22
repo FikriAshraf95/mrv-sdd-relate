@@ -1,6 +1,6 @@
 // Query: a read-only Cypher box, example queries, a results table and "Show as graph".
 import { api } from "./api.js";
-import { LABELS, css, h, labelColor } from "./dom.js";
+import { css, h, labelColor } from "./dom.js";
 
 const EXAMPLES = [
   ["Open tasks", "MATCH (t:Task) WHERE t.status <> 'done' RETURN t.id AS id, t.title AS title, t.status AS status ORDER BY id LIMIT 50"],
@@ -11,7 +11,11 @@ const EXAMPLES = [
   ["Label counts", "MATCH (n) RETURN labels(n)[0] AS label, count(*) AS n ORDER BY n DESC"],
 ];
 
-const lit = (ids) => `[${ids.map((i) => JSON.stringify(i)).join(", ")}]`;
+const cyStyle = () => [
+  { selector: "node", style: { "background-color": (n) => labelColor(n.data("label")), label: "data(short)", color: css("--text"), "font-size": 10, "text-valign": "bottom", "text-margin-y": 3, width: 18, height: 18 } },
+  { selector: "edge", style: { width: 1, "line-color": css("--line"), "target-arrow-color": css("--muted"), "target-arrow-shape": "triangle", "curve-style": "bezier" } },
+];
+
 const isNode = (v) => v && typeof v === "object" && !Array.isArray(v) && typeof v.id === "string";
 
 export function mount(el) {
@@ -28,7 +32,7 @@ export function mount(el) {
   el.append(
     h("div", { class: "bar" }, h("h2", {}, "Query"), pick, h("span", { class: "grow" })),
     box,
-    h("div", { class: "bar", style: "margin-top:8px" }, run, graphBtn, status),
+    h("div", { class: "bar mt" }, run, graphBtn, status),
     err,
     out,
     canvas,
@@ -79,9 +83,10 @@ export function mount(el) {
     err.textContent = "";
     const ids = [...new Set(result.rows.flatMap((r) => r.filter(isNode).map((n) => n.id)))].slice(0, 100);
     try {
-      const nodes = await api.query(`MATCH (n) WHERE n.id IN ${lit(ids)} RETURN n.id AS id, labels(n)[0] AS label`);
+      const nodes = await api.query("MATCH (n) WHERE n.id IN $ids RETURN n.id AS id, labels(n)[0] AS label", { ids });
       const edges = await api.query(
-        `MATCH (a)-[r]->(b) WHERE a.id IN ${lit(ids)} AND b.id IN ${lit(ids)} RETURN a.id AS s, type(r) AS t, b.id AS d`,
+        "MATCH (a)-[r]->(b) WHERE a.id IN $ids AND b.id IN $ids RETURN a.id AS s, type(r) AS t, b.id AS d",
+        { ids },
       );
       canvas.hidden = false;
       if (cy) cy.destroy();
@@ -99,17 +104,19 @@ export function mount(el) {
         elements,
        
         layout: { name: "cose", animate: false, padding: 24 },
-        style: [
-          { selector: "node", style: { "background-color": (n) => labelColor(LABELS.includes(n.data("label")) ? n.data("label") : "other"), label: "data(short)", color: css("--text"), "font-size": 10, "text-valign": "bottom", "text-margin-y": 3, width: 18, height: 18 } },
-          { selector: "edge", style: { width: 1, "line-color": css("--line"), "target-arrow-color": css("--muted"), "target-arrow-shape": "triangle", "curve-style": "bezier" } },
-        ],
+        style: cyStyle(),
       });
     } catch (e) {
       err.textContent = e.message;
     }
   });
 
+  const onTheme = () => cy && cy.style(cyStyle());
+  window.addEventListener("themechange", onTheme);
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", onTheme);
   return () => {
+    window.removeEventListener("themechange", onTheme);
+    matchMedia("(prefers-color-scheme: dark)").removeEventListener("change", onTheme);
     if (cy) cy.destroy();
   };
 }

@@ -1,4 +1,9 @@
-"""SPEC-07 §5 checks 5, 6 and 7 (deep-link part), and the static smoke test (SPEC-10 §6)."""
+"""SPEC-07 §5 checks 5, 6 and 7 (deep-link part), and the static smoke test (SPEC-10 §6).
+
+No JavaScript runtime exists in the dev container (no build step, no Node), so the browser-side
+behaviour of checks 5 and 7 is exercised by the milestone walkthrough; these tests pin what can be
+checked from Python: what is served, what the files reference and the API calls deep links make.
+"""
 
 from __future__ import annotations
 
@@ -6,62 +11,133 @@ import re
 
 from starlette.testclient import TestClient
 
+from sdd.graph import schema
 from sdd.web.api import STATIC_DIR
 
 _OWN = {"index.html", "style.css", "app.js", "api.js", "dom.js", "board.js", "graph.js", "query.js"}
 
 
-def _own_files() -> list[str]:
-    return sorted(p.name for p in STATIC_DIR.iterdir() if p.is_file())
+def _all_files() -> list[str]:
+    return sorted(
+        p.relative_to(STATIC_DIR).as_posix() for p in STATIC_DIR.rglob("*") if p.is_file()
+    )
+
+
+def _own_text() -> dict[str, str]:
+    """Every dashboard file except the vendored library."""
+    return {
+        name: (STATIC_DIR / name).read_text(encoding="utf-8")
+        for name in _all_files()
+        if not name.startswith("vendor/") and name.endswith((".html", ".css", ".js", ".svg"))
+    }
 
 
 def test_dashboard_files_are_all_served(app: TestClient) -> None:
-    assert set(_own_files()) >= _OWN
+    files = _all_files()
+    assert set(files) >= _OWN
+    assert "vendor/cytoscape.min.js" in files
+    assert "vendor/LICENSE-cytoscape.txt" in files
     index = app.get("/")
     assert index.status_code == 200
     assert "text/html" in index.headers["content-type"]
-    for name in _own_files():
+    for name in files:
         assert app.get(f"/{name}").status_code == 200, name
-    assert app.get("/vendor/cytoscape.min.js").status_code == 200
     # the API and the dashboard do not shadow each other
     assert app.get("/api/health").json()["ok"] is True
     assert app.get("/api/nope").status_code == 404
+    assert app.get("/../pyproject.toml").status_code == 404
+
+
+def test_every_asset_the_page_references_is_served(app: TestClient) -> None:
+    html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+    refs = re.findall(r'(?:src|href)="([^"]*)"', html)
+    assert {"style.css", "app.js", "vendor/cytoscape.min.js", "favicon.svg"} <= set(refs)
+    for ref in refs:
+        assert app.get(f"/{ref}").status_code == 200, ref
+    imports = re.findall(r'from "\./([^"]+)"', "".join(_own_text().values()))
+    assert imports
+    for ref in imports:
+        assert app.get(f"/{ref}").status_code == 200, ref
 
 
 def test_spec07_ac06_no_request_outside_the_own_origin() -> None:
-    html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
-    refs = re.findall(r'(?:src|href)="([^"]*)"', html)
-    assert refs
-    for ref in refs:
-        assert not re.match(r"^(?:[a-z]+:)?//", ref) or ref.startswith("data:"), ref
-    for name in _own_files():
-        if name == "index.html":
+    for name, text in _own_text().items():
+        if name == "favicon.svg":  # the SVG namespace is an identifier, not a request
+            assert "href=" not in text
             continue
-        text = (STATIC_DIR / name).read_text(encoding="utf-8")
         assert not re.search(r"https?://|(?<![:\w])//[a-z]", text), name
         assert "@import" not in text, name
-    for path in STATIC_DIR.glob("*.js"):
-        # every fetch goes to a relative /api path
-        for target in re.findall(
-            r"(?:fetch|EventSource)\(\s*[`\"']([^`\"']+)", path.read_text("utf-8")
-        ):
-            assert target.startswith("/api/") or target == "/api/events", (path.name, target)
+        for url in re.findall(r"url\(\s*['\"]?([^'\")]+)", text):
+            assert not re.match(r"^(?:[a-z]+:)?//|^data:", url), (name, url)
+    for ref in re.findall(
+        r'(?:src|href)="([^"]*)"', (STATIC_DIR / "index.html").read_text("utf-8")
+    ):
+        assert not re.match(r"^(?:[a-z]+:)?//|^data:", ref), ref
+    # the only network calls are in api.js and all go to /api/...
+    api = _own_text()["api.js"]
+    targets = re.findall(r"(?:request|fetch|EventSource)\(\s*[`\"']([^`\"']+)", api)
+    assert len(targets) >= 8
+    assert all(t.startswith("/api/") for t in targets), targets
+    for name, text in _own_text().items():
+        if name.endswith(".js") and name != "api.js":
+            assert not re.search(
+                r"\b(?:fetch|XMLHttpRequest|EventSource|WebSocket|sendBeacon)\b", text
+            ), name
 
 
-def test_spec07_ac05_board_polls_when_the_stream_is_down() -> None:
-    # The fallback is browser behaviour; this pins the wiring (the walkthrough exercises it live).
-    board = (STATIC_DIR / "board.js").read_text(encoding="utf-8")
-    assert "POLL_MS = 5000" in board
-    assert "setInterval(refresh, POLL_MS)" in board
+def test_dashboard_is_ready_for_the_public_csp() -> None:
+    # SPEC-09 §4 sets `default-src 'self'` for public mode: no inline style, script or data: URL
+    for name, text in _own_text().items():
+        assert "innerHTML" not in text, name
+        assert "outerHTML" not in text, name
+        assert "insertAdjacentHTML" not in text, name
+        assert 'style="' not in text, name
+        assert "style='" not in text, name
+        assert 'setAttribute("style"' not in text, name
+        assert not re.search(r"data:[a-z]+/", text), name  # a data: URL, not an object key
+    html = _own_text()["index.html"]
+    assert not re.search(r"<script(?![^>]*\ssrc=)", html)
+    assert not re.search(r"\son[a-z]+=", html)
+
+
+def test_spec07_ac05_board_has_a_polling_fallback() -> None:
+    # The fallback itself is browser behaviour (walkthrough: abort /api/events, watch a card move).
+    # Pinned here: the stream reports its state, an error means polling, and a retry storm of
+    # EventSource errors must not restart the poll timer (the bug the walkthrough found).
+    api = _own_text()["api.js"]
+    assert re.search(r"onerror\s*=\s*\(\)\s*=>\s*onState\(false\)", api)
+    assert "typeof EventSource" in api
+    board = _own_text()["board.js"]
+    assert re.search(r"setInterval\(\s*refresh\s*,\s*POLL_MS\s*\)", board)
+    assert re.search(r"POLL_MS\s*=\s*5000", board)
+    assert re.search(r"if \(on === live && started\) return", board)
     assert "api.board(" in board
-    api = (STATIC_DIR / "api.js").read_text(encoding="utf-8")
-    assert "es.onerror = () => onState(false)" in api
 
 
 def test_spec07_ac07_deep_link_targets_resolve_encoded(app: TestClient) -> None:
-    # `#impact/<encoded id>` and `#graph/<encoded id>` hand the decoded ID to these calls
-    assert app.get("/api/nodes/SPEC-01%231").json()["id"] == "SPEC-01#1"
-    assert app.get("/api/graph?focus=SPEC-01%231&depth=1").status_code == 200
-    router = (STATIC_DIR / "app.js").read_text(encoding="utf-8")
+    # `#graph/<encoded id>` and `#impact/<encoded id>` hand the decoded ID to these calls
+    node = app.get("/api/nodes/SPEC-01%231").json()
+    assert node["id"] == "SPEC-01#1"
+    focus = app.get("/api/graph?focus=SPEC-01%231&depth=1").json()
+    assert "SPEC-01#1" in {n["id"] for n in focus["nodes"]}
+    file = app.get("/api/nodes/file%3Asrc%2Fkettle%2Fbrew.py")
+    assert file.status_code == 200
+    assert file.json()["id"] == "file:src/kettle/brew.py"
+    # the router decodes what it reads and encodes what it writes; the adapter encodes every ID
+    router = _own_text()["app.js"]
     assert "decodeURIComponent(arg)" in router
     assert "encodeURIComponent(arg)" in router
+    api = _own_text()["api.js"]
+    assert "/api/nodes/${enc(id)}" in api
+    assert "const enc = encodeURIComponent" in api
+
+
+def test_graph_labels_offered_match_the_schema() -> None:
+    dom = _own_text()["dom.js"]
+    block = re.search(r"const KNOWN = \[(.*?)\];", dom, re.S)
+    assert block
+    offered = set(re.findall(r'"(\w+)"', block.group(1)))
+    assert offered == set(schema.LABELS) - {"Event", "Meta"}
+    css = _own_text()["style.css"]
+    for label in offered:
+        assert f"--l-{label}:" in css, label

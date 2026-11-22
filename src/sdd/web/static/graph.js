@@ -1,10 +1,11 @@
 // Graph: Cytoscape over /api/graph with a label filter, search, side panel, expand and reset.
 import { api } from "./api.js";
-import { LABELS, css, h, labelColor } from "./dom.js";
+import { DEFAULT_LABELS, LABELS, css, h, labelColor } from "./dom.js";
 
 export function mount(el, arg) {
   let cy = null;
-  const shown = new Set(LABELS);
+  const shown = new Set(DEFAULT_LABELS); // checked boxes
+  const loaded = new Set(DEFAULT_LABELS); // labels the server was asked for
   let home = arg || "";
 
   const search = h("input", { type: "search", placeholder: "ID or title", "aria-label": "Search" });
@@ -21,11 +22,14 @@ export function mount(el, arg) {
   );
 
   for (const label of LABELS) {
-    const box = h("input", { type: "checkbox", checked: true, "aria-label": label });
+    const box = h("input", { type: "checkbox", checked: DEFAULT_LABELS.includes(label), "aria-label": label });
     box.addEventListener("change", () => {
       if (box.checked) shown.add(label);
       else shown.delete(label);
-      applyFilter();
+      if (box.checked && !loaded.has(label)) {
+        loaded.add(label); // never fetched (Agent): ask the server again
+        load(home);
+      } else applyFilter();
     });
     filters.append(h("label", {}, box, h("span", { class: "swatch", "data-label": label }), label));
   }
@@ -132,7 +136,7 @@ export function mount(el, arg) {
       }
       home = focus;
       cy.elements().remove();
-      add(await api.graph({ focus: focus || undefined, depth: 1, limit: 300 }));
+      add(await api.graph({ labels: [...loaded], focus: focus || undefined, depth: 1, limit: 300 }));
       if (focus) {
         const n = cy.getElementById(focus);
         if (n.nonempty()) {
@@ -147,10 +151,14 @@ export function mount(el, arg) {
 
   function init() {
     cy = cytoscape({ container: canvas, elements: [], style: style() });
-    cy.on("tap", "node", (e) => showNode(e.target.id()));
+    cy.on("tap", "node", (e) => {
+      const id = e.target.id();
+      showNode(id);
+      history.replaceState(null, "", `#graph/${encodeURIComponent(id)}`); // keep the selection in the URL
+    });
     cy.on("dbltap", "node", async (e) => {
       try {
-        add(await api.graph({ focus: e.target.id(), depth: 1, limit: 300 }));
+        add(await api.graph({ labels: [...loaded], focus: e.target.id(), depth: 1, limit: 300 }));
       } catch (x) {
         err.textContent = x.message;
       }
@@ -161,9 +169,11 @@ export function mount(el, arg) {
 
   reset.addEventListener("click", () => {
     search.value = "";
-    shown.clear();
-    LABELS.forEach((l) => shown.add(l));
-    for (const b of filters.querySelectorAll("input")) b.checked = true;
+    for (const set of [shown, loaded]) {
+      set.clear();
+      DEFAULT_LABELS.forEach((l) => set.add(l));
+    }
+    for (const b of filters.querySelectorAll("input")) b.checked = DEFAULT_LABELS.includes(b.getAttribute("aria-label"));
     load("");
   });
 
@@ -180,7 +190,7 @@ export function mount(el, arg) {
     const q = search.value.trim();
     if (!q || cy.nodes(".hit").nonempty()) return;
     try {
-      add(await api.graph({ focus: q, depth: 1, limit: 300 })); // an exact ID not on screen yet
+      add(await api.graph({ labels: [...loaded], focus: q, depth: 1, limit: 300 })); // an exact ID not on screen yet
       showNode(q);
     } catch (x) {
       err.textContent = x.message;

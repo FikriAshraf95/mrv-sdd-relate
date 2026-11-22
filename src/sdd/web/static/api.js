@@ -37,11 +37,11 @@ export const api = {
   node: (id) => request(`/api/nodes/${enc(id)}`),
   presets: () => request("/api/presets"),
   preset: (name) => request(`/api/presets/${enc(name)}`),
-  query: (cypher) =>
+  query: (cypher, params = {}) =>
     request("/api/query", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ cypher, params: {} }),
+      body: JSON.stringify({ cypher, params }),
     }),
 
   // Live events: returns a close function. `onState(true|false)` reports whether the stream is up.
