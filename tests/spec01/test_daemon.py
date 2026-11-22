@@ -89,6 +89,12 @@ def test_spec01_ac02_sync_refuses_status_routes(runtime: Runtime, fake_daemon: F
     assert code == 0
     assert "M01 Timer" in out
 
+    fake_daemon.seen.clear()
+    code, out = _invoke("--json", "impact", "documents", "--project", root)
+    assert code == 0, out
+    assert "GET /api/impact" in fake_daemon.seen  # the daemon answers; the CLI opens no store
+    assert json.loads(out)["target"]["id"] == "table:documents"
+
 
 def test_ids_write_refuses_while_a_daemon_runs(runtime: Runtime, fake_daemon: FakeDaemon) -> None:
     root = runtime.settings.project_root
@@ -169,6 +175,11 @@ def test_spec01_ac03_status_without_daemon_read_only(project: MakeProject) -> No
     assert code == 0, out
     assert json.loads(out)["milestones"][0]["id"] == "M01"
     assert _tree(store_dir) == before  # no file created, none touched: a read-only snapshot
+
+    code, out = _invoke("--json", "impact", "documents", "--project", str(root))
+    assert code == 0, out
+    assert json.loads(out)["counts"]["files"] == 3  # impact reads the same snapshot
+    assert _tree(store_dir) == before
 
 
 # ---------------------------------------------------------------- detection and cleanup

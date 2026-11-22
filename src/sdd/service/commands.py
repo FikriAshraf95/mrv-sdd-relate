@@ -16,7 +16,7 @@ from urllib.parse import quote
 from sdd.config import Settings
 from sdd.errors import SddError
 from sdd.graph.store import Store
-from sdd.service import changes, context, coordination, query_guard, remote
+from sdd.service import changes, context, coordination, impact, query_guard, remote
 from sdd.service.runtime import Runtime
 
 __all__ = [
@@ -25,6 +25,9 @@ __all__ = [
     "context_packet",
     "deviation",
     "done",
+    "explain",
+    "find",
+    "impact_of",
     "milestone_done",
     "next_tasks",
     "query",
@@ -115,6 +118,33 @@ def section(settings: Settings, refs: list[str], agent: str | None) -> dict[str,
         return {**out, "sections": sections}
     with _local(settings, write=False) as runtime:
         return context.read_section(runtime, refs, agent)
+
+
+def impact_of(settings: Settings, target: str, depth: int, agent: str | None) -> dict[str, Any]:
+    if client := _client(settings):
+        result: dict[str, Any] = client.get(
+            "/api/impact", {"target": target, "depth": depth, "agent": agent}
+        )
+        return result
+    with _local(settings, write=False) as runtime:
+        return impact.impact(runtime, target, depth, agent)
+
+
+def explain(settings: Settings, path: str, agent: str | None) -> dict[str, Any]:
+    if client := _client(settings):
+        result: dict[str, Any] = client.get("/api/explain", {"path": path, "agent": agent})
+        return result
+    with _local(settings, write=False) as runtime:
+        return impact.explain(runtime, path, agent)
+
+
+def find(settings: Settings, agent: str | None, **fields: str | None) -> dict[str, Any]:
+    """``fields``: feature, domain, table, spec, text (the ``find_code`` arguments)."""
+    if client := _client(settings):
+        result: dict[str, Any] = client.get("/api/find", {**fields, "agent": agent})
+        return result
+    with _local(settings, write=False) as runtime:
+        return impact.find_code(runtime, agent=agent, **fields)
 
 
 def query(

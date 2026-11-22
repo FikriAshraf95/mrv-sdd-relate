@@ -49,6 +49,36 @@ def test_spec03_ac02_suite_fixture(project: MakeProject, store: Store) -> None:
     assert report.unresolved == {}
 
 
+def test_spec03_ac07_schema_tables_land_in_the_graph(project: MakeProject, store: Store) -> None:
+    report = sync_project(project("rag_style"), store)
+    tables = store.read("MATCH (t:Table) RETURN t.id AS id, t.defined_in AS d ORDER BY id")
+    assert tables == [
+        {"id": "table:documents", "d": "SPEC-02#2"},
+        {"id": "table:jobs", "d": "SPEC-02#4"},
+        {"id": "table:loans", "d": "SPEC-02#3"},
+    ]
+    assert _rels(store, "REFERENCES") == [("column:loans.document_id", "table:documents", {})]
+    assert ("SPEC-02#2", "table:documents", {}) in _rels(store, "DEFINES_TABLE")
+    assert len(_rels(store, "HAS_COLUMN", "table:documents")) == 5  # created_at, updated_at too
+    nullable = store.read(
+        "MATCH (c:Column {id: 'column:documents.shelf'}) RETURN c.nullable AS n, c.pk AS pk"
+    )
+    assert nullable == [{"n": True, "pk": False}]
+    assert report.unresolved == {"M02": ["M03"]}  # the tables add nothing unresolved
+
+    sync_project(project("suite_style"), store)
+    ref = _rels(store, "REFERENCES")
+    assert ("column:attachments.uploaded_by", "table:users", {}) in ref
+    assert ("column:file_shares.attachment_id", "table:attachments", {}) in ref
+    email = store.read(
+        "MATCH (c:Column {id: 'column:users.email'}) RETURN c.type AS t, c.nullable AS n"
+    )
+    assert email == [{"t": "text", "n": False}]
+    assert store.read("MATCH (c:Column {id: 'column:attachments.ts'}) RETURN c.name AS n") == [
+        {"n": "ts"}
+    ]
+
+
 def test_spec03_ac03_grammar_results_land_in_the_graph(project: MakeProject, store: Store) -> None:
     sync_project(project("suite_style"), store)
     m17 = _rels(store, "READS", "M17")

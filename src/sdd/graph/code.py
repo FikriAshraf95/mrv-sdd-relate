@@ -36,8 +36,11 @@ __all__ = [
     "prune_empty_folders",
     "read_check_ids",
     "read_code_state",
+    "read_features",
     "read_git_state",
+    "read_implemented",
     "read_tests",
+    "replace_implemented",
     "replace_tests",
     "set_last_git_sha",
     "upsert_files",
@@ -209,6 +212,42 @@ def read_check_ids(store: Store | Tx) -> set[str]:
     """Every AcceptanceCheck ID."""
     rows = _run(store)(f"MATCH (c:{_label('AcceptanceCheck')}) RETURN c.id AS id")
     return {r["id"] for r in rows}
+
+
+# ---------------------------------------------------------------- features
+
+
+def read_features(store: Store | Tx) -> dict[str, list[str]]:
+    """``{feature id: globs}`` for every Feature node."""
+    rows = _run(store)(f"MATCH (f:{_label('Feature')}) RETURN f.id AS id, f.globs AS globs")
+    return {r["id"]: list(r["globs"] or []) for r in rows}
+
+
+def read_implemented(store: Store | Tx) -> dict[str, set[str]]:
+    """``{feature id: {File id}}`` for every stored ``IMPLEMENTED_IN``."""
+    out: dict[str, set[str]] = defaultdict(set)
+    for row in _run(store)(
+        f"MATCH (f:{_label('Feature')})-[:{_rel_type('IMPLEMENTED_IN')}]->(x:{_label('File')}) "
+        "RETURN f.id AS f, x.id AS x"
+    ):
+        out[row["f"]].add(row["x"])
+    return out
+
+
+def replace_implemented(tx: Tx, feature_id: str, file_ids: Iterable[str]) -> None:
+    """Replace a Feature's ``IMPLEMENTED_IN {src: 'walker'}`` with links to ``file_ids``."""
+    tx.run(
+        f"MATCH (:{_label('Feature')} {{id: $id}})-[r:{_rel_type('IMPLEMENTED_IN')}]->() DELETE r",
+        {"id": feature_id},
+    )
+    ids = sorted(set(file_ids))
+    for chunk in _chunks(ids):
+        tx.run(
+            f"MATCH (f:{_label('Feature')} {{id: $id}}) UNWIND $ids AS fid "
+            f"MATCH (x:{_label('File')} {{id: fid}}) "
+            f"CREATE (f)-[:{_rel_type('IMPLEMENTED_IN')} {{src: 'walker'}}]->(x)",
+            {"id": feature_id, "ids": list(chunk)},
+        )
 
 
 # ---------------------------------------------------------------- git

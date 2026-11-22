@@ -20,12 +20,12 @@
 | `sdd public --store PATH [--port 8780]` | Run the read-only public server ([SPEC-09 §4](SPEC-09-security.md#4-public-mode)) |
 | `sdd sync [--reset]` | One full sync without a daemon (code walker, Markdown, git; [SPEC-04 §2, §4, §6](SPEC-04-sync.md)); `--reset` empties the store first, in place (graph-only state is lost; asks unless `--yes`; `--json` needs `--yes`). The `--json` result adds `code` (`added`, `updated`, `removed`, `folders`, `tests_links`, `capped`) and `git` (`added`, `removed`, `head`; `null` when skipped) |
 | `sdd status` | Milestones, task counts, claims, warnings, unresolved links, unticked tasks with COMPLETES commits |
-| `sdd doctor` | Reads the Markdown only and never opens the store, so it works on a read-only checkout. Every parser warning and unresolved link, deviation index mismatches, duplicate IDs; exit 1 if any `error` |
+| `sdd doctor` | Reads the Markdown only and never opens the store, so it works on a read-only checkout. Every parser warning and unresolved link, deviation index mismatches, duplicate IDs; exit 1 if any `error`. The counts include tables, columns and resolved `REFERENCES` |
 | `sdd ids --write [--milestone M17]` | Add stable task IDs to legacy checkbox lines ([SPEC-03 §4.2](SPEC-03-markdown-parsing.md#42-task-ids)); shows a diff and asks unless `--yes` |
 | `sdd next [--milestone M] [--limit N] [--agent A]` · `sdd claim T --agent A` · `sdd release T --agent A [--reason …] [--force]` · `sdd done T --agent A [--notes …] [--files PATH]… [--commit SHA]` | The coordination tools for humans and scripts |
 | `sdd deviation T --agent A --title … --amends REF… --spec-says … --does … --why … [--consequences …] [--affects …] [--resolved]` · `sdd milestone-done M --agent A --verification TEXT` | `log_deviation` and `complete_milestone` ([SPEC-05 §5–6](SPEC-05-agent-tools.md#5-log_deviation)) |
 | `sdd context T [--detail milestone]` · `sdd section REF` | Print a context packet or sections |
-| `sdd impact TARGET` · `sdd explain PATH` · `sdd find …` · `sdd changes --since X [--agent A]` | [SPEC-06](SPEC-06-code-context.md) and `what_changed` |
+| `sdd impact TARGET [--depth N]` · `sdd explain PATH` · `sdd find [--feature F] [--domain D] [--table T] [--spec S] [--text X]` · `sdd changes --since X [--agent A]` | [SPEC-06](SPEC-06-code-context.md) and `what_changed`. `impact` prints the target, then every non-empty group (`tables (2)`) with one line per item and its `via` chain, and `… 50 of 120` when a group is capped; `explain` prints the summary, then its groups; `find` prints one `path  (language)` line per file and `N files` (`--json` prints the result as is) |
 | `sdd query CYPHER` | Read-only Cypher through the guard |
 | `sdd export …` | [§3](#3-exports-and-snapshots) |
 | `sdd snapshot [--out DIR]` | Checkpoint and write the committed copies ([§3](#3-exports-and-snapshots)) |

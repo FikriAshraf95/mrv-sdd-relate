@@ -147,6 +147,19 @@ def test_log_deviation_writes_file_row_note_and_links(runtime: Runtime) -> None:
     assert events(runtime, "deviation_logged")[-1]["target_id"] == "D003"
 
 
+def test_log_deviation_affects_a_table_and_only_known_nodes(runtime: Runtime) -> None:
+    """D004 is resolved: an entry is a File node's path or a Table node's name (SPEC-05 §5)."""
+    result = coord.log_deviation(runtime, "M01.2", "a", affects=["documents"], **DEVIATION)
+    pairs = runtime.store.read(
+        "MATCH (:Deviation {id: $id})-[:AFFECTS]->(n) RETURN n.id AS id", {"id": result["id"]}
+    )
+    assert pairs == [{"id": "table:documents"}]
+    root = runtime.settings.project_root
+    (root / "src/kettle/fresh.py").write_text("x = 1\n", encoding="utf-8")  # on disk, no node yet
+    fresh = {**DEVIATION, "affects": ["src/kettle/fresh.py"]}
+    assert _code(lambda: coord.log_deviation(runtime, "M01.2", "a", **fresh)) == "invalid_input"
+
+
 def test_log_deviation_on_a_whole_spec(runtime: Runtime) -> None:
     result = coord.log_deviation(runtime, "M01.2", "a", **{**DEVIATION, "amends": ["SPEC-01"]})
     lines = read(runtime, SPEC).splitlines()

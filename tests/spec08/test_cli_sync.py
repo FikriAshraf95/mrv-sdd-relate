@@ -109,7 +109,7 @@ def test_sync_json_and_second_run_is_a_noop(project: MakeProject, tmp_path: Path
     store = str(tmp_path / "graph")
     first = _json("sync", "--project", str(root), "--store", store)
     assert first["initial"] is True
-    assert first["unresolved_total"] == 4
+    assert first["unresolved_total"] == 3
     assert first["events"] == 0
     second = _json("sync", "--project", str(root), "--store", store)
     assert second["initial"] is False
@@ -164,8 +164,8 @@ def test_status_reads_a_synced_store_and_needs_one(project: MakeProject, tmp_pat
     data = _json("status", "--project", str(root), "--store", store)
     assert [m["id"] for m in data["milestones"]] == ["M01", "M02"]  # type: ignore[attr-defined,index]
     assert data["unresolved"] == {
-        "D001": ["brews", "src/kettle/brew.py"],
-        "D002": ["documents", "src/ingest/loader.py"],
+        "D001": ["brews"],  # D001's src/kettle/brew.py and D002's file and table now resolve
+        "SPEC-01": ["table:brews", "table:teas"],
     }
 
 
@@ -192,3 +192,6 @@ def test_doctor_never_opens_the_store(project: MakeProject, tmp_path: Path) -> N
     counts = _json("doctor", "--project", str(root))["counts"]
     assert counts["milestones"] == 2  # type: ignore[index]
     assert counts["legacy_task_lines"] == 7  # type: ignore[index]
+    assert (counts["tables"], counts["columns"], counts["references"]) == (3, 11, 1)  # type: ignore[index]
+    text = _run("doctor", "--project", str(root))[1]
+    assert "3 tables, 11 columns, 1 references" in text

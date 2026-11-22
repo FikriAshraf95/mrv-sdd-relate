@@ -27,7 +27,7 @@
 | 10 | `GET /api/explain?path=` | ✓ | [SPEC-06 §3](SPEC-06-code-context.md#3-explain) |
 | 11 | `GET /api/find?feature=&domain=&table=&spec=&text=` | ✓ | [SPEC-06 §4](SPEC-06-code-context.md#4-find_code) |
 | 12 | `GET /api/changes?since=&agent=` | ✓ | as MCP `what_changed` |
-| 13 | `GET /api/presets` · `GET /api/presets/{name}` | ✓ | preset list; one preset as graph JSON |
+| 13 | `GET /api/presets` · `GET /api/presets/{name}` | ✓ | preset list `[{name, params, description}]` ([SPEC-06 §5](SPEC-06-code-context.md#5-presets)); one preset as graph JSON `{nodes, edges}` (`name` percent-encoded, e.g. `impact%3Adocuments`) |
 | 14 | `POST /api/query` `{cypher, params}` | ✓ (guarded, may be preset-only) | `{columns, rows, truncated}` |
 | 15 | `GET /api/mermaid?preset=` | ✓ | `text/plain` Mermaid ([SPEC-08 §3](SPEC-08-cli-and-exports.md#3-exports-and-snapshots)) |
 | 16 | `GET /api/events` | ✓ | SSE stream ([§3](#3-live-events)) |

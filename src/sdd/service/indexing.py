@@ -90,6 +90,11 @@ def doctor(settings: Settings) -> dict[str, Any]:
             "milestones": sum(1 for n in nodes if n.label == "Milestone"),
             "tasks": sum(1 for n in nodes if n.label == "Task"),
             "deviations": sum(1 for n in nodes if n.label == "Deviation"),
+            "tables": sum(1 for n in nodes if n.label == "Table"),
+            "columns": sum(1 for n in nodes if n.label == "Column"),
+            "references": sum(
+                1 for res in analysis.resolved.values() for r in res.rels if r.type == "REFERENCES"
+            ),
             "legacy_task_lines": sum(
                 1 for n in nodes if n.label == "Task" and not n.props.get("stable_id")
             ),

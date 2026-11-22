@@ -38,7 +38,9 @@ __all__ = [
     "FileInfo",
     "IgnoreRules",
     "builtin_ignored",
+    "expand_features",
     "file_hash",
+    "globspec",
     "iter_files",
     "prune_folders",
     "read_info",
@@ -299,6 +301,7 @@ class CodeReport:
 class CodeResult:
     report: CodeReport = field(default_factory=CodeReport)
     written: set[str] = field(default_factory=set)  # paths added or updated
+    added: set[str] = field(default_factory=set)  # paths that had no File node before
     removed: set[str] = field(default_factory=set)
     changed_ids: set[str] = field(default_factory=set)
 
@@ -309,6 +312,7 @@ class CodeResult:
     def merge(self, other: CodeResult) -> None:
         """Fold a second code step (the git step's) into this one."""
         self.written |= other.written
+        self.added |= other.added
         self.removed |= other.removed
         self.changed_ids |= other.changed_ids
         for name in ("added", "updated", "removed", "folders", "capped"):
@@ -368,6 +372,7 @@ def _sync_full(
         have = stored.files.get(rel)
         if have is None:
             result.report.added += 1
+            result.added.add(rel)
         elif _same(_props(info, sdd[rel]), have):
             continue
         else:
@@ -449,6 +454,7 @@ def _sync_batch(
         old = cache.get(rel)
         if old is None:
             result.report.added += 1
+            result.added.add(rel)
         elif _props(old, sdd[rel]) == _props(info, sdd[rel]):
             continue
         else:
@@ -521,6 +527,47 @@ def prune_folders(store: Store, result: CodeResult) -> None:
     pruned = store.write(graph_code.prune_empty_folders)
     result.report.folders += len(pruned)
     result.changed_ids.update(f"dir:{p}" for p in pruned)
+
+
+# ---------------------------------------------------------------- feature globs
+
+
+def globspec(globs: Iterable[str]) -> pathspec.PathSpec[Any]:
+    """Project-relative gitignore-style patterns (config globs, Feature ``Implements``).
+
+    A slash-less pattern is anchored at the root: gitignore would match it at any depth.
+    """
+    return pathspec.PathSpec.from_lines("gitignore", [g if "/" in g else f"/{g}" for g in globs])
+
+
+def expand_features(store: Store, cache: CodeCache, result: CodeResult) -> dict[str, int]:
+    """Match every Feature's globs against every known path and rewrite ``IMPLEMENTED_IN``.
+
+    A diff: a feature whose wanted file set equals the stored one is not written. Returns
+    ``{feature id: files matched}`` for every Feature (so ``feature_glob_empty`` can be
+    reported); the IDs of rewritten features join ``result.changed_ids``.
+    """
+    features = graph_code.read_features(store)
+    if not features:
+        return {}
+    stored = graph_code.read_implemented(store)
+    paths = sorted(cache)
+    counts: dict[str, int] = {}
+    todo: dict[str, set[str]] = {}
+    for fid, globs in sorted(features.items()):
+        wanted = {f"file:{p}" for p in globspec(globs).match_files(paths)} if globs else set[str]()
+        counts[fid] = len(wanted)
+        if stored.get(fid, set()) != wanted:
+            todo[fid] = wanted
+    if todo:
+
+        def job(tx: Tx) -> None:
+            for fid, ids in todo.items():
+                graph_code.replace_implemented(tx, fid, ids)
+
+        store.write(job)
+        result.changed_ids.update(todo)
+    return counts
 
 
 # ---------------------------------------------------------------- TESTS

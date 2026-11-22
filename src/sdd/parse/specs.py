@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 from markdown_it.token import Token
 
-from sdd.ids import id_from_filename, normalise
+from sdd.ids import InvalidIdError, id_from_filename, normalise
 from sdd.parse.links import (
     Found,
     backticked,
@@ -27,6 +27,7 @@ from sdd.parse.md import (
     tokens,
 )
 from sdd.parse.model import FeatureLine, Node, ParseResult, Ref, Rel, add_rel, rel_props, warn
+from sdd.parse.schema_tables import TableSection, parse_tables
 
 __all__ = ["parse_spec"]
 
@@ -82,6 +83,42 @@ def parse_features(
     return out
 
 
+def _feature_graph(spec_id: str, result: ParseResult) -> None:
+    """Feature and Domain nodes and their relationships from the Feature lines (SPEC-03 §3.3).
+
+    Both nodes are shared between specs and carry no ``source_path``: the indexer merges them
+    across files (plan M04b §2). ``SPECIFIED_BY``, ``BELONGS_TO`` and ``USES_TABLE`` stay with
+    this file, so they follow its phase 2.
+    """
+    seen: set[tuple[object, ...]] = set()
+    for line in result.features:
+        feature_id = f"feature:{line.slug}"
+        result.nodes.append(
+            Node(
+                "Feature",
+                feature_id,
+                {"name": line.name, "slug": line.slug, "globs": list(line.implements)},
+            )
+        )
+        add_rel(result.rels, seen, Rel("SPECIFIED_BY", feature_id, Ref("id", spec_id, line.line)))
+        if line.domain and line.domain_slug:
+            domain_id = f"domain:{line.domain_slug}"
+            result.nodes.append(
+                Node("Domain", domain_id, {"name": line.domain, "slug": line.domain_slug})
+            )
+            add_rel(
+                result.rels, seen, Rel("BELONGS_TO", feature_id, Ref("id", domain_id, line.line))
+            )
+        for table in line.tables:
+            try:
+                table_id = normalise(f"table:{table}")
+            except InvalidIdError:
+                continue
+            add_rel(
+                result.rels, seen, Rel("USES_TABLE", feature_id, Ref("id", table_id, line.line))
+            )
+
+
 def _item_text(lines: list[str], start: int, end: int) -> str:
     chunk = lines[start:end]
     while chunk and not chunk[-1].strip():
@@ -95,8 +132,11 @@ def _item_text(lines: list[str], start: int, end: int) -> str:
     return "\n".join([first, *rest]).strip()
 
 
-def parse_spec(path: str, text: str) -> ParseResult:
-    """Parse one spec file. Never raises on bad Markdown; problems are warnings."""
+def parse_spec(path: str, text: str, *, schema: bool = False) -> ParseResult:
+    """Parse one spec file. Never raises on bad Markdown; problems are warnings.
+
+    ``schema`` marks a ``schema_specs`` file: its table sections yield Table and Column nodes.
+    """
     result = ParseResult(path)
     raw_text = text
     text = nl(text)
@@ -158,6 +198,8 @@ def parse_spec(path: str, text: str) -> ParseResult:
         )
     )
 
+    _feature_graph(spec_id, result)
+
     # ---- sections
     sections = _collect_sections(path, spec_id, lines, toks, result)
     for i, sec in enumerate(sections):
@@ -195,7 +237,25 @@ def parse_spec(path: str, text: str) -> ParseResult:
     seen: set[tuple[object, ...]] = set()
     _walk(path, spec_id, toks, lines, sections, result, seen)
     _acceptance(path, spec_id, toks, lines, sections, result)
+    if schema:
+        _schema_tables(path, spec_id, toks, sections, result)
     return result
+
+
+def _schema_tables(
+    path: str, spec_id: str, toks: list[Token], sections: list[_Section], result: ParseResult
+) -> None:
+    """Table and Column nodes of a ``schema_specs`` file (SPEC-03 §6)."""
+    headings = [i for i, t in enumerate(toks) if t.type == "heading_open" and t.level == 0]
+    spans = [
+        TableSection(
+            s.id, s.title, s.tok_index, next((h for h in headings if h > s.tok_index), len(toks))
+        )
+        for s in sections
+    ]
+    nodes, rels = parse_tables(path, spec_id, toks, spans)
+    result.nodes.extend(nodes)
+    result.rels.extend(rels)
 
 
 def _collect_sections(

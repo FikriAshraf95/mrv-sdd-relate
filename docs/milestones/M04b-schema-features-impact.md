@@ -10,16 +10,16 @@ Tables and columns from the schema spec, author-declared features and domains, b
 
 ## Tasks
 ### Layer
-- [ ] **M04b.1** `parse/schema_tables.py` + upsert: Table, Column, `DEFINES_TABLE`, `HAS_COLUMN`, `REFERENCES` for both layouts ([SPEC-03 §6](../specs/SPEC-03-markdown-parsing.md#6-schema-tables)).
-- [ ] **M04b.2** Feature lines into the graph, glob expansion on file add/remove (`src = walker`) ([SPEC-03 §3.3](../specs/SPEC-03-markdown-parsing.md#33-feature-line)).
-- [ ] **M04b.3** `MENTIONS` from backticked table names and file paths in sections, tasks and deviations, and resolution of deviation **Affects:** entries ([SPEC-03 §3.2, §5.1](../specs/SPEC-03-markdown-parsing.md#32-sections)). (after M04b.1)
+- [x] **M04b.1** `parse/schema_tables.py` + upsert: Table, Column, `DEFINES_TABLE`, `HAS_COLUMN`, `REFERENCES` for both layouts ([SPEC-03 §6](../specs/SPEC-03-markdown-parsing.md#6-schema-tables)).
+- [x] **M04b.2** Feature lines into the graph, glob expansion on file add/remove (`src = walker`) ([SPEC-03 §3.3](../specs/SPEC-03-markdown-parsing.md#33-feature-line)).
+- [x] **M04b.3** `MENTIONS` from backticked table names and file paths in sections, tasks and deviations, and resolution of deviation **Affects:** entries ([SPEC-03 §3.2, §5.1](../specs/SPEC-03-markdown-parsing.md#32-sections)). (after M04b.1)
 ### Queries
-- [ ] **M04b.4** `service/impact.py` over named queries in `graph/queries/*.cypher` (shared later with the static demo): target resolution, `impact`, `explain`, `find_code`, the presets ([SPEC-06](../specs/SPEC-06-code-context.md)). (after M04b.1, M04b.2, M04b.3)
-- [ ] **M04b.5** MCP tools 11–13, endpoints 9–11 and 13, CLI `impact`, `explain`, `find`. (after M04b.4)
-- [ ] **M04b.6** `get_context` code part: features, files, tables, recent commits ([SPEC-05 §4](../specs/SPEC-05-agent-tools.md#4-get_context) item 5). (after M04b.4)
+- [x] **M04b.4** `service/impact.py` over named queries in `graph/queries/*.cypher` (shared later with the static demo): target resolution, `impact`, `explain`, `find_code`, the presets ([SPEC-06](../specs/SPEC-06-code-context.md)). (after M04b.1, M04b.2, M04b.3)
+- [x] **M04b.5** MCP tools 11–13, endpoints 9–11 and 13, CLI `impact`, `explain`, `find`. (after M04b.4)
+- [x] **M04b.6** `get_context` code part: features, files, tables, recent commits ([SPEC-05 §4](../specs/SPEC-05-agent-tools.md#4-get_context) item 5). (after M04b.4)
 ### Tests
-- [ ] **M04b.7** [SPEC-06 §6](../specs/SPEC-06-code-context.md#6-acceptance-checks) checks 1–7; [SPEC-03 §7](../specs/SPEC-03-markdown-parsing.md#7-acceptance-checks) checks 7, 8 (graph side) and 9.
-- [ ] **M04b.8** Extend `test_spec01_ac02` and `test_spec01_ac03` to `sdd impact` (M02 tested them with `sdd status`). (after M04b.5)
+- [x] **M04b.7** [SPEC-06 §6](../specs/SPEC-06-code-context.md#6-acceptance-checks) checks 1–7; [SPEC-03 §7](../specs/SPEC-03-markdown-parsing.md#7-acceptance-checks) checks 7, 8 (graph side) and 9.
+- [x] **M04b.8** Extend `test_spec01_ac02` and `test_spec01_ac03` to `sdd impact` (M02 tested them with `sdd status`). (after M04b.5)
 
 ## Acceptance criteria
 1. The tests above are green, along with the full gates.

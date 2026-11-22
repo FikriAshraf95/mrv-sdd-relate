@@ -262,7 +262,9 @@ def doctor(
         typer.echo(
             f"{counts['specs']} specs, {counts['sections']} sections, "
             f"{counts['milestones']} milestones, {counts['tasks']} tasks, "
-            f"{counts['deviations']} deviations, {counts['legacy_task_lines']} legacy task lines, "
+            f"{counts['deviations']} deviations, {counts['tables']} tables, "
+            f"{counts['columns']} columns, {counts['references']} references, "
+            f"{counts['legacy_task_lines']} legacy task lines, "
             f"{counts['unresolved_links']} unresolved links"
         )
         typer.echo(f"warnings: {sev['error']} error, {sev['warning']} warning, {sev['info']} info")
@@ -657,6 +659,100 @@ def section(
         return
     for s in result["sections"]:
         typer.echo(f"## {s['id']} {s['title']}\n{s['text']}\n")
+
+
+@app.command("impact")
+def impact_(
+    ctx: typer.Context,
+    target: Annotated[
+        str,
+        typer.Argument(help="A table, table.column, spec reference, task, file, feature or ID."),
+    ],
+    depth: Annotated[int, typer.Option("--depth", help="Hops to follow, 1 to 5.")] = 3,
+    agent: OptAgentOpt = None,
+    project: ProjectOpt = None,
+    store: StoreOpt = None,
+    as_json: JsonOpt = False,
+) -> None:
+    """If this changes, what else is affected? Every item with the chain that reaches it."""
+    settings, use_json = resolve(ctx, project, store, as_json)
+    result = _run(use_json, lambda: commands.impact_of(settings, target, depth, agent))
+    if use_json:
+        return
+    t = result["target"]
+    typer.echo(f"{t['id']} ({t['label']}) {t['title']}")
+    for group, items in result["groups"].items():
+        total = result["counts"][group]
+        if not total:
+            continue
+        typer.echo(f"{group} ({total})")
+        for item in items:
+            status = f" [{item['status']}]" if item.get("status") else ""
+            typer.echo(f"  {item['id']}  {item['title']}{status}")
+            typer.echo(f"      via {' '.join(item['via'])}")
+        if total > len(items):
+            typer.echo(f"  … {len(items)} of {total}")
+
+
+EXPLAIN_GROUPS = ("features", "sections", "tasks", "commits", "deviations", "checks")
+
+
+@app.command()
+def explain(
+    ctx: typer.Context,
+    path: Annotated[str, typer.Argument(help="A project file path (a unique tail is enough).")],
+    agent: OptAgentOpt = None,
+    project: ProjectOpt = None,
+    store: StoreOpt = None,
+    as_json: JsonOpt = False,
+) -> None:
+    """Why a file exists and what shaped it."""
+    settings, use_json = resolve(ctx, project, store, as_json)
+    result = _run(use_json, lambda: commands.explain(settings, path, agent))
+    if use_json:
+        return
+    typer.echo(result["summary"])
+    for group in EXPLAIN_GROUPS:
+        if not result[group]:
+            continue
+        typer.echo(f"{group} ({len(result[group])})")
+        for item in result[group]:
+            name = item.get("title") or item.get("name") or item.get("message") or item.get("text")
+            ident = item.get("id") or item["short"]
+            status = f" [{item['status']}]" if item.get("status") else ""
+            typer.echo(f"  {ident}  {name or ''}{status}")
+            typer.echo(f"      via {' '.join(item['via'])}")
+
+
+@app.command()
+def find(
+    ctx: typer.Context,
+    feature: Annotated[str | None, typer.Option("--feature", help="Feature slug or name.")] = None,
+    domain: Annotated[str | None, typer.Option("--domain", help="Domain slug or name.")] = None,
+    table: Annotated[str | None, typer.Option("--table", help="Table name.")] = None,
+    spec: Annotated[str | None, typer.Option("--spec", help="Spec, e.g. SPEC-02.")] = None,
+    text: Annotated[str | None, typer.Option("--text", help="Substring of the path.")] = None,
+    agent: OptAgentOpt = None,
+    project: ProjectOpt = None,
+    store: StoreOpt = None,
+    as_json: JsonOpt = False,
+) -> None:
+    """Files by feature, domain, table, spec or path text; several options intersect."""
+    settings, use_json = resolve(ctx, project, store, as_json)
+    result = _run(
+        use_json,
+        lambda: commands.find(
+            settings, agent, feature=feature, domain=domain, table=table, spec=spec, text=text
+        ),
+    )
+    if use_json:
+        return
+    for f in result["files"]:
+        language = f"  ({f['language']})" if f.get("language") else ""
+        typer.echo(f"{f['path']}{language}")
+    total = result["counts"]["files"]
+    cut = f" (showing {len(result['files'])})" if total > len(result["files"]) else ""
+    typer.echo(f"{total} files{cut}")
 
 
 @app.command()

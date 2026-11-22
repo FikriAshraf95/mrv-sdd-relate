@@ -114,10 +114,12 @@ Everything below is lost by `sdd sync --reset` and is excluded from rebuild equi
 | Folder | `path`, `name` |
 | File | `path`, `name`, `language` (by extension), `size`, `lines`, `content_hash`, `is_test` |
 | Commit | `sha`, `short`, `message` (first line), `author`, `at`, `paths` (list, every path in the diff including deleted ones) |
-| Table | `name`, `defined_in` (section id) |
-| Column | `table`, `name`, `type`, `nullable` (bool), `pk` (bool), `notes` |
-| Feature | `name`, `slug` |
+| Table | `name`, `defined_in` (section id), `source_path`, `source_line` |
+| Column | `table`, `name`, `type`, `nullable` (bool), `pk` (bool), `notes`, `source_path`, `source_line` |
+| Feature | `name`, `slug`, `globs` (list of the `Implements` patterns, the union over every declaring spec) |
 | Domain | `name`, `slug` |
+
+Feature and Domain nodes have **no `source_path`**: several specs can declare one, so they are written from every spec's Feature lines after phase 1 (merged by ID) and deleted when no spec declares them any more. Their relationships (`SPECIFIED_BY`, `BELONGS_TO`, `USES_TABLE`) are owned by the declaring spec like any other.
 
 File contents are **never** stored. The graph holds connections and intent; agents still read and grep files.
 

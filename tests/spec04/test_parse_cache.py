@@ -16,9 +16,9 @@ def _count_parses(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     calls: list[str] = []
     for kind, parser in dict(indexer._PARSERS).items():
 
-        def counted(path: str, text: str, _parser=parser) -> object:  # type: ignore[no-untyped-def]
+        def counted(path: str, text: str, _parser=parser, **options: bool) -> object:  # type: ignore[no-untyped-def]
             calls.append(path)
-            return _parser(path, text)
+            return _parser(path, text, **options)
 
         monkeypatch.setitem(indexer._PARSERS, kind, counted)
     return calls

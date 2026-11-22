@@ -1,10 +1,9 @@
-"""The MCP server (SPEC-05): tools 1–10 and 14, served over streamable HTTP at ``/mcp``.
+"""The MCP server (SPEC-05): tools 1–14, served over streamable HTTP at ``/mcp``.
 
 Each tool validates its input, calls one ``service/`` function and returns its JSON, the same
 result the matching HTTP endpoint and CLI command give (SPEC-05 §1 rule 1). Errors come back as
 an ``is_error`` result whose text is the one error shape (SPEC-00 §6.4). Tools are plain ``def``
 functions, which the SDK runs in a worker thread, so a store call never blocks the event loop.
-Tools 11–13 arrive in M04b.
 """
 
 from __future__ import annotations
@@ -22,6 +21,7 @@ from starlette.applications import Starlette
 from sdd import __version__
 from sdd.errors import SddError
 from sdd.service import changes, context, coordination, query_guard
+from sdd.service import impact as impact_service
 from sdd.service.runtime import Runtime
 
 __all__ = ["INSTRUCTIONS", "TOOLS", "create_server", "streamable_app"]
@@ -48,6 +48,9 @@ TOOLS = (
     "complete_task",
     "complete_milestone",
     "what_changed",
+    "impact",
+    "explain",
+    "find_code",
     "query",
 )
 
@@ -219,6 +222,57 @@ def create_server(runtime: Runtime) -> MCPServer:
         """What changed since then: sections, specs, deviations, tasks completed and claimed,
         milestones done. Use it instead of re-reading docs at session start."""
         return _result(lambda: changes.what_changed(runtime, since, agent))
+
+    @server.tool()
+    def impact(
+        target: Annotated[
+            str,
+            Field(
+                description="What changes: a table (`documents`), `table.column`, a spec "
+                "reference (`SPEC-03 §5.2`), a task or milestone ID, a file path, a feature or "
+                "a prefixed ID such as `table:documents`."
+            ),
+        ],
+        depth: Annotated[int, Field(ge=1, le=impact_service.MAX_DEPTH)] = 3,
+        agent: OptAgent = None,
+    ) -> CallToolResult:
+        """If this changes, what else is affected? Specs, sections, milestones, tables, features,
+        files, open and done tasks, deviations, tests and commits, each with `via`, the chain
+        of relationships that connects it to the target. An ambiguous name returns
+        `ambiguous_target` with the candidates."""
+        return _result(lambda: impact_service.impact(runtime, target, depth, agent))
+
+    @server.tool()
+    def explain(
+        path: Annotated[str, Field(description="A project file path (a unique tail is enough).")],
+        agent: OptAgent = None,
+    ) -> CallToolResult:
+        """Why does this file exist and what shaped it: its features and specs, the tasks and
+        commits behind it, deviations that affect it, the checks it tests, and a summary."""
+        return _result(lambda: impact_service.explain(runtime, path, agent))
+
+    @server.tool()
+    def find_code(  # noqa: PLR0917 (an MCP tool takes its arguments by name)
+        feature: str | None = None,
+        domain: str | None = None,
+        table: str | None = None,
+        spec: str | None = None,
+        text: Annotated[str | None, Field(description="Substring of the file path.")] = None,
+        agent: OptAgent = None,
+    ) -> CallToolResult:
+        """Files by feature, domain, table, spec or path text; give at least one and several
+        are intersected. Each file carries `via`, the route to it."""
+        return _result(
+            lambda: impact_service.find_code(
+                runtime,
+                feature=feature,
+                domain=domain,
+                table=table,
+                spec=spec,
+                text=text,
+                agent=agent,
+            )
+        )
 
     @server.tool()
     def query(

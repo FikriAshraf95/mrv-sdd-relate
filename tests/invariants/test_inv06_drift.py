@@ -22,12 +22,9 @@ from sdd.service.runtime import Runtime
 
 SPECS = Path(__file__).resolve().parents[2] / "docs" / "specs"
 
-PENDING_TOOLS = {"impact": "M04b", "explain": "M04b", "find_code": "M04b"}
+PENDING_TOOLS: dict[str, str] = {}
 PENDING_COMMANDS = {
     "public": "M06b",
-    "impact": "M04b",
-    "explain": "M04b",
-    "find": "M04b",
     "export": "M06a",
     "snapshot": "M06a",
     "bench": "M07",

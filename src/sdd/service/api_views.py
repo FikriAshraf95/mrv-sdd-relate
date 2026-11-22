@@ -17,7 +17,7 @@ from sdd.ids import InvalidIdError, label_of, normalise
 from sdd.service import coordination
 from sdd.service.runtime import Runtime
 
-__all__ = ["board", "graph", "health", "milestones", "node", "status"]
+__all__ = ["board", "graph", "health", "milestones", "node", "shape_node", "status"]
 
 DEFAULT_HIDDEN = frozenset({"Event", "Meta", "Agent"})
 MAX_LIMIT = 2000
@@ -32,7 +32,7 @@ def _canonical(raw: str) -> tuple[str, str]:
         raise SddError("invalid_input", str(exc), details={"id": raw}) from None
 
 
-def _shape(label: str, props: dict[str, Any]) -> dict[str, Any]:
+def shape_node(label: str, props: dict[str, Any]) -> dict[str, Any]:
     title = props.get("title") or props.get("name") or props["id"]
     return {"id": props["id"], "label": label, "title": title, "props": props}
 
@@ -142,13 +142,13 @@ def graph(
                 f"MATCH (n:{label}) RETURN properties(n) AS p ORDER BY n.id LIMIT {int(room)}"
             )
             for row in rows:
-                nodes[row["p"]["id"]] = _shape(label, row["p"])
+                nodes[row["p"]["id"]] = shape_node(label, row["p"])
     else:
         ident, label = _canonical(focus)
         rows = store.read(f"MATCH (n:{label} {{id: $id}}) RETURN properties(n) AS p", {"id": ident})
         if not rows:
             raise SddError("node_not_found", f"No node {ident}.", details={"id": ident})
-        nodes[ident] = _shape(label, rows[0]["p"])
+        nodes[ident] = shape_node(label, rows[0]["p"])
         frontier = [ident]
         for _ in range(depth):
             found = _neighbours(runtime, frontier)
@@ -159,7 +159,7 @@ def graph(
                     continue
                 if len(nodes) >= limit:
                     break
-                nodes[node_id] = _shape(row["label"], row["p"])
+                nodes[node_id] = shape_node(row["label"], row["p"])
                 frontier.append(node_id)
             if not frontier or len(nodes) >= limit:
                 break
@@ -210,7 +210,7 @@ def node(runtime: Runtime, raw_id: str) -> dict[str, Any]:
         ),
     ):
         for row in store.read(cypher, {"id": ident}):
-            entry = _shape(row["l"][0], row["p"])
+            entry = shape_node(row["l"][0], row["p"])
             grouped.setdefault(row["type"], []).append({"direction": direction, **entry})
     for items in grouped.values():
         items.sort(key=lambda e: (e["direction"], e["id"]))

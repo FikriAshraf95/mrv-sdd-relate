@@ -40,6 +40,7 @@ WARNING_CODES: dict[str, Severity] = {
     "ref_bad_range": "warning",
     "ac_duplicate_number": "warning",
     "feature_bad_line": "warning",
+    "feature_glob_empty": "warning",
     "deviation_missing_section": "warning",
     "deviation_bad_field": "warning",
     "deviation_index_mismatch": "warning",

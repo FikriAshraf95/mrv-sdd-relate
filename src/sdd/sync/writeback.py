@@ -416,11 +416,10 @@ def _resolve_amend(tx: Tx, ref: Ref) -> AmendTarget | None:
     return AmendTarget(str(hit["id"]), spec_id, spec_path, str(hit["anchor"]), label)
 
 
-def check_affects(tx: Tx, settings: Settings, affects: tuple[str, ...]) -> list[str]:
-    """Each entry must name a File or Table node, or a file of the project (D004), else
-    ``invalid_input``. Returns the entries, stripped."""
+def check_affects(tx: Tx, affects: tuple[str, ...]) -> list[str]:
+    """Each entry must name a File node's path or a Table node's name, else ``invalid_input``
+    (SPEC-05 §5). Returns the entries, stripped."""
     out: list[str] = []
-    root = settings.project_root.resolve()
     for raw in affects:
         entry = raw.strip().strip("`")
         if not entry:
@@ -429,11 +428,10 @@ def check_affects(tx: Tx, settings: Settings, affects: tuple[str, ...]) -> list[
             "MATCH (n) WHERE n.id IN $ids RETURN n.id AS id",
             {"ids": [f"file:{entry}", f"table:{entry}"]},
         )
-        on_disk = (root / entry).resolve()
-        if not hit and not (on_disk.is_relative_to(root) and on_disk.is_file()):
+        if not hit:
             raise SddError(
                 "invalid_input",
-                f"affects entry {entry!r} is neither a file of the project nor a table.",
+                f"affects entry {entry!r} names no File node or Table node.",
                 details={"affects": entry},
             )
         out.append(entry)
@@ -614,7 +612,7 @@ def log_deviation(
     is located before the first write, so ``source_changed`` leaves every file as it was.
     """
     targets = resolve_amends(tx, dev.amends)
-    affects = check_affects(tx, settings, dev.affects)
+    affects = check_affects(tx, dev.affects)
     index_rel = _glob_file(settings, "deviation_index", "docs/DEVIATIONS.md")
     index_text = _read(settings, index_rel) if _abs(settings, index_rel).is_file() else None
     number: int = memo.setdefault("number", next_deviation_number(settings, index_text))

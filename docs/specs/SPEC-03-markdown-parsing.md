@@ -24,6 +24,7 @@
 | `ref_bad_range` | warning | a `§` range that cannot be expanded (both ends are kept as plain section references) |
 | `ac_duplicate_number` | warning | two acceptance checks with one number (the second is skipped) |
 | `feature_bad_line` | warning | a Feature line without a name |
+| `feature_glob_empty` | warning | a Feature's globs match no file; reported by `sync/` |
 | `deviation_missing_section` | warning | [§5.1](#51-deviation-files) |
 | `deviation_bad_field` | warning | an unparsable **Date / milestone:** date |
 | `deviation_index_mismatch` | warning | [§5.2](#52-deviation-index) |
@@ -78,7 +79,7 @@ The H1 is `# SPEC-NN — Title` (em dash, en dash or hyphen). The blockquote rig
 - Every H2–H4 is a Section. A leading number (`5.2`, `6.`, `10.`) becomes `number`; the rest is `title`. `anchor` follows GitHub's slug rules.
 - `text` is the body until the next heading of the same or a higher level, **excluding** child sections (they are their own nodes, linked by `HAS_SECTION`).
 - A Section's `content_hash` covers its own text only, so editing §5.2 changes §5.2, not §5.
-- Markdown links and spec references in the text become `LINKS_TO`. Backticked identifiers that exactly match a known table name or an existing file path become `MENTIONS` ([SPEC-02 §4](SPEC-02-graph-schema.md#4-relationships)).
+- Markdown links and spec references in the text become `LINKS_TO`. Backticked identifiers that exactly match a known table name or an existing file path (a File node, so a code file or an SDD document) become `MENTIONS`; one identifier can name both, and both are linked ([SPEC-02 §4](SPEC-02-graph-schema.md#4-relationships)).
 - A line containing `**DEVIATION:**` (at any blockquote depth, outside code) links every `[Dnnn]` on it to this section with `AMENDS` (from the deviation).
 - A section titled *Acceptance checks* (any level, number optional) yields one AcceptanceCheck per top-level numbered list item.
 
@@ -89,7 +90,7 @@ Optional, in the header blockquote, one line per feature:
 > **Feature:** File sharing · **Domain:** Files · **Implements:** `backend/**/FileShares/**`, `frontend/src/features/files/**` · **Tables:** file_shares, attachments
 ```
 
-Yields Feature (slug from the name), Domain, `SPECIFIED_BY` this spec, `BELONGS_TO`, `IMPLEMENTED_IN` (globs expanded by sync, [SPEC-04 §4](SPEC-04-sync.md#4-code-walker)) and `USES_TABLE`. A feature declared in two specs is one node with two `SPECIFIED_BY` relationships.
+Yields Feature (slug from the name), Domain, `SPECIFIED_BY` this spec, `BELONGS_TO`, `IMPLEMENTED_IN` (globs expanded by sync, [SPEC-04 §4](SPEC-04-sync.md#4-code-walker)) and `USES_TABLE`. A feature declared in two specs is one node with two `SPECIFIED_BY` relationships and the union of the globs. Globs are project-relative gitignore-style patterns, like the config globs (a slash-less pattern is anchored at the root). A `USES_TABLE` to a table nobody defines is listed in `unresolved` on the declaring Spec.
 
 ## 4. Milestones and tasks
 
@@ -137,14 +138,14 @@ CLAUDE.md files, IDEA, design system, HANDOFF and README become Doc nodes with t
 
 ## 6. Schema tables
 
-In `schema_specs` only. A **table section** is a heading whose title, after removing its number and any trailing parenthetical (`(append-only)`, `([SPEC-18](…))`), is one identifier, optionally backticked. It must be followed, before the next heading, by a Markdown table whose first header cell is `Column`. Both reference layouts qualify:
+In `schema_specs` only. A **table section** is a heading whose title, after removing its number and any trailing parenthetical (`(append-only)`, `([SPEC-18](…))`), is one identifier, optionally backticked. It must be followed, before the next heading **of any level**, by a Markdown table whose first header cell is `Column` (a table inside a code fence does not count). Both reference layouts qualify:
 
 ```markdown
 ## 2. `documents`                    ### attachments
 | Column | Type | Rules |          | Column | Type | Notes |
 ```
 
-Per row: `name` from the first cell (backticks stripped; `created_at`, `updated_at` in one cell yield two columns); `type` from the Type cell. From the Type and Rules/Notes cells:
+The header cells are matched by name (case-insensitive): `Column`, `Type`, and `Rules` or `Notes` (the third column when neither exists). Per row: `name` from the first cell (backticks stripped; `created_at`, `updated_at` in one cell yield two columns, and a repeated name keeps the first); `type` from the Type cell without the words `null` / `not null` (`text not null` gives `text`); `notes` from the Rules/Notes cell. From the Type and Rules/Notes cells:
 - `not null` → `nullable = false`; otherwise `null` as a word → `true`; otherwise unknown (`null`).
 - `PK` → `pk = true`.
 - `→ name` or `FK → name` → `REFERENCES` that table (unresolved if it is not defined).

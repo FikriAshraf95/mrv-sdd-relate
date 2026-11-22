@@ -39,7 +39,7 @@ from sdd.parse import (
 )
 from sdd.parse.md import id_slug
 from sdd.parse.model import warn
-from sdd.sync.files import IgnoreRules, builtin_ignored, file_hash, iter_files
+from sdd.sync.files import IgnoreRules, builtin_ignored, file_hash, globspec, iter_files
 
 if TYPE_CHECKING:
     from sdd.sync.files import CodeReport
@@ -58,6 +58,8 @@ __all__ = [
     "discover",
     "file_hash",
     "full_sync",
+    "globspec",
+    "mentions",
     "reset",
     "sync",
     "sync_tx",
@@ -70,6 +72,7 @@ ParseCache = dict[str, tuple[str, str, ParseResult]]
 _PLAN_NAME = re.compile(r"^M\d+[a-z]?-plan\.md$")
 _MILESTONE_NAME = re.compile(r"^M\d+[a-z]?-.+\.md$")
 _PRIMARY_LABELS = ("Spec", "Milestone", "Deviation", "Doc")
+_SHARED_LABELS = ("Feature", "Domain")  # no source_path: merged across specs (plan M04b §2)
 _PARSERS = {
     "spec": parse_spec,
     "milestone": parse_milestone,
@@ -83,16 +86,11 @@ _PARSERS = {
 # ---------------------------------------------------------------- discovery
 
 
-def _spec(globs: Iterable[str]) -> pathspec.PathSpec[Any]:
-    # gitignore patterns match a slash-less pattern at any depth; config globs are project-relative
-    return pathspec.PathSpec.from_lines("gitignore", [g if "/" in g else f"/{g}" for g in globs])
-
-
 class Classifier:
     """Classify project-relative paths against the SDD globs; the pathspecs are built once."""
 
     def __init__(self, settings: Settings) -> None:
-        self._specs = {key: _spec(globs) for key, globs in settings.paths.items()}
+        self._specs = {key: globspec(globs) for key, globs in settings.paths.items()}
 
     def classify(self, rel: str) -> str | None:
         """The SDD kind of ``rel`` (a ``.md`` file under no built-in skip), else ``None``.
@@ -107,6 +105,10 @@ class Classifier:
     def is_test(self, rel: str) -> bool:
         """Whether ``rel`` matches a ``tests`` glob (SPEC-03 §1)."""
         return self._specs["tests"].match_file(rel)
+
+    def is_schema(self, rel: str) -> bool:
+        """Whether ``rel`` matches a ``schema_specs`` glob (its table sections are parsed)."""
+        return self._specs["schema_specs"].match_file(rel)
 
 
 def classify(settings: Settings, rel: str) -> str | None:
@@ -172,6 +174,7 @@ class Analysis:
     warnings: list[ParseWarning]
     keep_ids: set[str]
     catalog_rows: list[Row]
+    shared: list[NodeIn] = field(default_factory=list)  # Feature and Domain nodes, merged
 
     @property
     def unresolved(self) -> dict[str, list[str]]:
@@ -190,8 +193,12 @@ def analyse(
     *,
     cache: ParseCache | None = None,
     files: Mapping[str, str] | None = None,
+    file_exists: Callable[[str], bool] | None = None,
 ) -> Analysis:
     """Discover, read, parse and resolve every SDD file. Reads Markdown only; no store.
+
+    ``file_exists`` says whether a backticked path names a file (the graph's File nodes, from
+    ``sync``); without it the project folder decides, honouring the ignore rules (``sdd doctor``).
 
     ``files`` (``{path: kind}``, the watcher's SDD set) replaces discovery. With a ``cache``, a
     file whose hash and kind are unchanged is not re-parsed (SPEC-04 §2 step 3); resolution still
@@ -199,6 +206,7 @@ def analyse(
     ``_drop_duplicates`` reassigns ``nodes`` and ``rels``.
     """
     found = discover(settings) if files is None else dict(sorted(files.items()))
+    classifier = Classifier(settings)
     files_: list[SourceFile] = []
     for path, kind in found.items():
         try:
@@ -210,7 +218,9 @@ def analyse(
         if hit is not None and hit[0] == digest and hit[1] == kind:
             pristine = hit[2]
         else:
-            pristine = _PARSERS[kind](path, data.decode("utf-8", errors="replace"))
+            text = data.decode("utf-8", errors="replace")
+            options = {"schema": True} if kind == "spec" and classifier.is_schema(path) else {}
+            pristine = _PARSERS[kind](path, text, **options)
             if cache is not None:
                 cache[path] = (digest, kind, pristine)
         result = replace(
@@ -223,16 +233,60 @@ def analyse(
     if cache is not None:
         for gone in set(cache) - {f.path for f in files_}:
             del cache[gone]
-    return _analyse_files(files_)
+    return _analyse_files(files_, file_exists or _disk_exists(settings))
 
 
-def _analyse_files(files: list[SourceFile]) -> Analysis:
+def _disk_exists(settings: Settings) -> Callable[[str], bool]:
+    """``file_exists`` for an analysis without a store: a regular, non-ignored file on disk."""
+    root = settings.project_root.resolve()
+    rules = IgnoreRules(root)
+
+    def exists(rel: str) -> bool:
+        if not rel or rel.startswith("/") or ".." in rel.split("/") or "\\" in rel:
+            return False
+        try:
+            return (root / rel).is_file() and not rules.ignored(rel)
+        except (OSError, ValueError):
+            return False
+
+    return exists
+
+
+def _take_shared(files: list[SourceFile]) -> list[NodeIn]:
+    """Pull the Feature and Domain nodes out of every file and merge them by ID.
+
+    The first file by path gives ``name`` and ``slug``; a Feature's ``globs`` are the sorted union
+    over every declaration. Their relationships stay with the declaring file.
+    """
+    merged: dict[str, NodeIn] = {}
+    for f in files:
+        keep = []
+        for node in f.result.nodes:
+            if node.label not in _SHARED_LABELS:
+                keep.append(node)
+                continue
+            old = merged.get(node.id)
+            if old is None:
+                merged[node.id] = NodeIn(node.label, node.id, dict(node.props))
+            elif "globs" in node.props:
+                globs = sorted({*old.props.get("globs", []), *node.props["globs"]})
+                merged[node.id] = NodeIn(old.label, old.id, {**old.props, "globs": globs})
+        f.result.nodes = keep
+    for shared in merged.values():
+        if "globs" in shared.props:
+            shared.props["globs"] = sorted(set(shared.props["globs"]))
+    return sorted(merged.values(), key=lambda n: n.id)
+
+
+def _analyse_files(files: list[SourceFile], file_exists: Callable[[str], bool]) -> Analysis:
+    shared = _take_shared(files)
 
     warnings = [w for f in files for w in f.result.warnings]
     warnings += _drop_duplicates(files)
     warnings += _check_index(files)
 
     catalog = Catalog.from_results(f.result for f in files)
+    catalog.ids.update(n.id for n in shared)
     tracked = {f.path for f in files}
     for path in sorted(tracked):
         catalog.ids.add(f"file:{path}")
@@ -240,12 +294,12 @@ def _analyse_files(files: list[SourceFile]) -> Analysis:
 
     resolved: dict[str, Resolved] = {}
     for f in files:
-        resolved[f.path], extra = _resolve_file(f, catalog, tracked)
+        resolved[f.path], extra = _resolve_file(f, catalog, tracked, file_exists)
         warnings += extra
 
     keep_ids = {n.id for f in files for n in f.result.nodes}
     warnings.sort(key=lambda w: (w.path, w.line, w.code))
-    return Analysis(files, resolved, warnings, keep_ids, _catalog_rows(files))
+    return Analysis(files, resolved, warnings, keep_ids, _catalog_rows(files), shared)
 
 
 def _drop_duplicates(files: list[SourceFile]) -> list[ParseWarning]:
@@ -280,7 +334,7 @@ def _check_index(files: list[SourceFile]) -> list[ParseWarning]:
 
 
 def _resolve_file(
-    f: SourceFile, catalog: Catalog, tracked: set[str]
+    f: SourceFile, catalog: Catalog, tracked: set[str], file_exists: Callable[[str], bool]
 ) -> tuple[Resolved, list[ParseWarning]]:
     out = Resolved()
     warnings: list[ParseWarning] = []
@@ -298,12 +352,11 @@ def _resolve_file(
         targets: list[str] = []
         missing: list[str] = []
         if rel.to.kind == "mention":
-            if rel.to.target in tracked:
-                targets = [f"file:{rel.to.target}"]
-            elif rel.props.get("strict"):
+            targets = _mention_targets(rel.to.target, catalog, tracked, file_exists)
+            if not targets:
+                if not rel.props.get("strict"):
+                    continue
                 missing = [rel.to.target]
-            else:
-                continue
         else:
             res = resolve(rel.to, catalog, path=f.path)
             targets, missing = res.targets, res.unresolved
@@ -325,6 +378,31 @@ def _resolve_file(
                 seen.add(key)
                 out.rels.append(RelIn(rel.type, rel.from_id, target, props))
     return out, warnings
+
+
+def _mentions(result: ParseResult) -> set[str]:
+    return {r.to.target for r in result.rels if r.to.kind == "mention"}
+
+
+def mentions(cache: ParseCache) -> dict[str, set[str]]:
+    """``{mentioned identifier: {SDD paths}}`` over the cached parse results."""
+    out: dict[str, set[str]] = {}
+    for path, (_, _, result) in cache.items():
+        for ident in _mentions(result):
+            out.setdefault(ident, set()).add(path)
+    return out
+
+
+def _mention_targets(
+    ident: str, catalog: Catalog, tracked: set[str], file_exists: Callable[[str], bool]
+) -> list[str]:
+    """What a backticked identifier names: a Table, an existing file, or both (plan M04b §3)."""
+    out = []
+    if f"table:{ident}" in catalog.ids:
+        out.append(f"table:{ident}")
+    if ident in tracked or file_exists(ident):
+        out.append(f"file:{ident}")
+    return out
 
 
 # ---------------------------------------------------------------- re-link fingerprint (D003)
@@ -423,16 +501,20 @@ def sync(
     full: bool = True,
     files: Mapping[str, str] | None = None,
     cache: ParseCache | None = None,
+    code_touched: frozenset[str] = frozenset(),
 ) -> SyncReport:
     """Skip unchanged files, upsert changed ones, remove vanished ones.
 
     ``full`` marks a startup or requested scan: it writes ``Meta.last_full_sync`` and checkpoints.
     A watcher batch passes ``full=False`` and its SDD file set; it checkpoints only when it wrote
-    something. ``cache`` lets unchanged files skip parsing. The caller serializes calls.
+    something. ``cache`` lets unchanged files skip parsing. ``code_touched`` are the code paths
+    this sync added or removed: a document that mentions one gets its relationships rebuilt even
+    if its text is unchanged (SPEC-04 §4, Mentions). The caller serializes calls.
     """
-    analysis = analyse(settings, cache=cache, files=files)
+    known = upsert.read_file_paths(store)
+    analysis = analyse(settings, cache=cache, files=files, file_exists=known.__contains__)
     state = _scope(upsert.read_state(store), Classifier(settings))
-    report = _apply(store.write, state, analysis, settings, full=full)
+    report = _apply(store.write, state, analysis, settings, full=full, code_touched=code_touched)
     if full or report.changed or report.removed or report.relinked:
         store.checkpoint()  # no flush for a no-op watcher batch
     return report
@@ -446,7 +528,7 @@ def sync_tx(tx: Tx, settings: Settings, *, cache: ParseCache | None = None) -> S
     commits, so the watcher finds nothing to do. A move is a removal plus an addition here. No
     checkpoint (the store flushes after the next batch) and ``Meta.last_full_sync`` is unchanged.
     """
-    analysis = analyse(settings, cache=cache)
+    analysis = analyse(settings, cache=cache, file_exists=upsert.read_file_paths(tx).__contains__)
 
     def run_here(job: Callable[[Tx], Any]) -> Any:
         return job(tx)
@@ -480,6 +562,7 @@ def _apply(
     settings: Settings,
     *,
     full: bool,
+    code_touched: frozenset[str] = frozenset(),
 ) -> SyncReport:
     """Phase 1, removals, phase 2 and Meta, each step through ``run_job`` (a job or the Tx)."""
     now = settings.now_iso()
@@ -534,7 +617,23 @@ def _apply(
         totals.extend(phase1(f))
     for path in removed:
         totals.extend(removal(path))
-    phase2 = analysis.by_kind() if relink_all else changed
+
+    def shared_job(tx: Tx) -> NodeChanges:
+        return upsert.sync_shared_nodes(tx, analysis.shared, now=now)
+
+    shared_changes: NodeChanges = run_job(shared_job)
+    totals.extend(shared_changes)
+    if relink_all:
+        phase2 = analysis.by_kind()
+    else:
+        # a document that mentions a code file that appeared or went away follows it
+        done = {f.path for f in changed}
+        moved = [
+            f
+            for f in analysis.by_kind()
+            if f.path not in done and _mentions(f.result) & code_touched
+        ]
+        phase2 = sorted([*changed, *moved], key=lambda f: (KIND_ORDER.index(f.kind), f.path))
     for f in phase2:
         phase2_job(f)
 

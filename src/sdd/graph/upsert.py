@@ -35,8 +35,10 @@ __all__ = [
     "add_event",
     "delete_file",
     "merge_props",
+    "read_file_paths",
     "read_state",
     "replace_file_rels",
+    "sync_shared_nodes",
     "task_status",
     "upsert_file_nodes",
     "write_meta",
@@ -53,6 +55,7 @@ CATALOG_LABELS = (
     "Deviation",
     "Doc",
     "File",
+    "Table",
 )
 
 
@@ -295,6 +298,47 @@ def upsert_file_nodes(
     return changes
 
 
+def sync_shared_nodes(tx: Tx, nodes: list[NodeIn], *, now: str) -> NodeChanges:
+    """Write the Feature and Domain nodes the specs declare, delete the ones nobody declares.
+
+    They have no ``source_path`` (several specs can declare one), so the per-file rules do not
+    apply; the caller merged them across files. Only a node whose properties differ is written.
+    No Events (plan M04b §2).
+    """
+    changes = NodeChanges()
+    wanted = {n.id: n for n in nodes}
+    stored: dict[str, tuple[str, Row]] = {}
+    for label in ("Feature", "Domain"):
+        for row in tx.run(f"MATCH (n:{_label(label)}) RETURN properties(n) AS p"):
+            stored[row["p"]["id"]] = (label, row["p"])
+    rows_by_label: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for node_id, node in wanted.items():
+        props = {**node.props, "id": node_id}
+        old = stored.get(node_id)
+        if old is None:
+            changes.created.append(node_id)
+        elif _differs(old[1], props):
+            changes.updated.append(node_id)
+        else:
+            continue
+        rows_by_label[node.label].append(
+            {"id": node_id, "props": encode_props({**props, "last_synced": now})}
+        )
+    for label, rows in rows_by_label.items():
+        tx.run(
+            f"UNWIND $rows AS row MERGE (n:{_label(label)} {{id: row.id}}) SET n = row.props",
+            {"rows": rows},
+        )
+    gone: dict[str, list[str]] = defaultdict(list)
+    for node_id, (label, _) in stored.items():
+        if node_id not in wanted:
+            gone[label].append(node_id)
+            changes.deleted.append(node_id)
+    for label, ids in gone.items():
+        tx.run(f"MATCH (n:{_label(label)}) WHERE n.id IN $ids DETACH DELETE n", {"ids": ids})
+    return changes
+
+
 def _differs(old: Mapping[str, Any], new: Mapping[str, Any]) -> bool:
     skip = {"last_synced", "unresolved"}
     return {k: v for k, v in old.items() if k not in skip} != {
@@ -513,6 +557,12 @@ def write_meta(
 
 
 # ---------------------------------------------------------------- reading state
+
+
+def read_file_paths(store: Store | Tx) -> set[str]:
+    """The path of every File node (SDD documents and code files)."""
+    run = store.run if isinstance(store, Tx) else store.read
+    return {row["path"] for row in run("MATCH (f:File) RETURN f.path AS path")}
 
 
 def read_state(store: Store | Tx) -> GraphState:

@@ -1,4 +1,4 @@
-"""The JSON API (SPEC-07 §2): endpoints 1–8, 12, 14, 16–19 and 21, and ``/mcp``.
+"""The JSON API (SPEC-07 §2): endpoints 1–14, 16–19 and 21, and ``/mcp``.
 
 Each handler validates its input, calls one ``service/`` function and returns its JSON. Read
 handlers are plain ``def`` functions, which Starlette runs in its thread pool, so a blocking store
@@ -22,7 +22,7 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
 from sdd.errors import SddError
-from sdd.service import api_views, changes, context, coordination, query_guard
+from sdd.service import api_views, changes, context, coordination, impact, query_guard
 from sdd.service.runtime import Runtime
 from sdd.web import sse
 from sdd.web.errors import HTTP_STATUS, error_response
@@ -135,6 +135,37 @@ def create_app(runtime: Runtime, *, mcp_app: Starlette | None = None) -> Starlet
         )
         return JSONResponse(result)
 
+    def impact_(request: Request) -> Response:
+        result = impact.impact(
+            runtime,
+            request.query_params.get("target", ""),
+            _int(request, "depth", 3),
+            _q(request, "agent"),
+        )
+        return JSONResponse(result)
+
+    def explain(request: Request) -> Response:
+        result = impact.explain(runtime, request.query_params.get("path", ""), _q(request, "agent"))
+        return JSONResponse(result)
+
+    def find(request: Request) -> Response:
+        result = impact.find_code(
+            runtime,
+            feature=_q(request, "feature"),
+            domain=_q(request, "domain"),
+            table=_q(request, "table"),
+            spec=_q(request, "spec"),
+            text=_q(request, "text"),
+            agent=_q(request, "agent"),
+        )
+        return JSONResponse(result)
+
+    def preset_list(request: Request) -> Response:
+        return JSONResponse(impact.presets())
+
+    def preset_graph(request: Request) -> Response:
+        return JSONResponse(impact.preset(runtime, request.path_params["name"]))
+
     async def query(request: Request) -> Response:
         data = await _body(request)
         params = data.get("params")
@@ -217,7 +248,12 @@ def create_app(runtime: Runtime, *, mcp_app: Starlette | None = None) -> Starlet
         Route("/api/milestones", milestones, methods=["GET"]),
         Route("/api/sections/{ref:path}", section, methods=["GET"]),
         Route("/api/tasks/{id}/context", task_context, methods=["GET"]),
+        Route("/api/impact", impact_, methods=["GET"]),
+        Route("/api/explain", explain, methods=["GET"]),
+        Route("/api/find", find, methods=["GET"]),
         Route("/api/changes", what_changed, methods=["GET"]),
+        Route("/api/presets", preset_list, methods=["GET"]),
+        Route("/api/presets/{name:path}", preset_graph, methods=["GET"]),
         Route("/api/query", query, methods=["POST"]),
         Route("/api/events", sse.events(runtime), methods=["GET"]),
         Route("/api/tasks/{id}/claim", writer(claim), methods=["POST"]),

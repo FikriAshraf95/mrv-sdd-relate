@@ -3,7 +3,7 @@
 - **Date / milestone:** 2026-11-21 · M03a · M03a.2
 - **Spec:** [SPEC-05 §5](../specs/SPEC-05-agent-tools.md#5-log_deviation)
 - **Affects:** `src/sdd/sync/writeback.py`
-- **Status:** Open
+- **Status:** Resolved (2026-11-22, M04b.3: Table and code File nodes exist, so the spec's rule holds)
 
 ## Spec says
 log_deviation adds AFFECTS for affects entries that resolve to a File or Table; an entry that resolves to neither is invalid_input.

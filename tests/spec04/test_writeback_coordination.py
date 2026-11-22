@@ -127,8 +127,8 @@ def test_spec04_ac12_complete_milestone_moves_and_rewrites_links(runtime: Runtim
 
     report = runtime.sync(full=True)
     assert report["changed"] == []  # the job re-synced the moved and rewritten files
-    # D001's Affects entries wait for code File and Table nodes (M04a/M04b)
-    assert set(report["unresolved"]) <= {"D001", "D002"}
+    # no table `brews` exists in the fixture: D001's Affects entry and SPEC-01's USES_TABLE
+    assert set(report["unresolved"]) == {"D001", "SPEC-01"}
     assert [w for w in report["warnings"] if w["code"] == "link_moved"] == []
 
 

@@ -49,18 +49,6 @@ def _rag(make_runtime: MakeRuntime, **kwargs: str) -> Runtime:
     return runtime
 
 
-def _feature(runtime: Runtime) -> None:
-    """A Feature on the walker's File node, as M04b will create it (so `code` has content)."""
-    runtime.store.write(
-        lambda tx: tx.run(
-            "MATCH (p:Spec {id: 'SPEC-01'}) MATCH (x:File {id: 'file:src/kettle/brew.py'}) "
-            "CREATE (f:Feature {id: 'feature:brewing', name: 'Brewing', slug: 'brewing'}) "
-            "CREATE (f)-[:SPECIFIED_BY {src: 'test'}]->(p) "
-            "CREATE (f)-[:IMPLEMENTED_IN {src: 'walker'}]->(x)"
-        )
-    )
-
-
 # ---------------------------------------------------------------- get_context
 
 
@@ -157,11 +145,10 @@ def test_always_include_is_configurable(make_runtime: MakeRuntime) -> None:
 
 def test_spec05_ac06_truncation_order_never_cuts_a_section(runtime: Runtime) -> None:
     write_file(runtime, "docs/specs/SPEC-00-overview.md", SPEC00)
-    _feature(runtime)
     full = context.get_context(runtime, "M01.1", max_chars=context.MAX_CHARS)
     assert full["size"]["truncated"] == []
     assert full["code"]["features"] == ["brewing"]
-    assert full["code"]["files"] == ["src/kettle/brew.py"]
+    assert full["code"]["files"] == ["src/kettle/__init__.py", "src/kettle/brew.py"]
     assert _ids(full["upstream"]) == ["M01.4"]
     assert _ids(full["outline"]) == ["SPEC-01#2"]
     texts = {s["id"]: s["text"] for s in full["sections"]}

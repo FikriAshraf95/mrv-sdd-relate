@@ -443,27 +443,30 @@ def _code(
         "RETURN DISTINCT f.id AS id, f.slug AS slug ORDER BY slug",
         {"specs": specs},
     )
+    feature_ids = [f["id"] for f in features]
     paths = [
         str(r["path"])
         for r in store.read(
             "MATCH (f:Feature)-[:IMPLEMENTED_IN]->(x:File) WHERE f.id IN $ids "
-            "RETURN DISTINCT x.path AS path ORDER BY path",
-            {"ids": [f["id"] for f in features]},
+            f"RETURN DISTINCT x.path AS path ORDER BY path LIMIT {MAX_FILES}",
+            {"ids": feature_ids},
         )
-    ][:MAX_FILES]
+    ]
     tables = store.read(
         "MATCH (n)-[:MENTIONS]->(t:Table) WHERE n.id IN $ids RETURN DISTINCT t.name AS name "
         "ORDER BY name",
         {"ids": [ident, *sections]},
     )
+    # the commits of every file of the features, not just the listed ones
     commits = (
         store.read(
-            "MATCH (c:Commit)-[:CHANGED]->(x:File) WHERE x.path IN $paths "
+            "MATCH (f:Feature)-[:IMPLEMENTED_IN]->(x:File)<-[:CHANGED]-(c:Commit) "
+            "WHERE f.id IN $ids "
             "RETURN DISTINCT c.short AS short, c.message AS message, c.at AS at "
             f"ORDER BY at DESC LIMIT {MAX_COMMITS}",
-            {"paths": paths},
+            {"ids": feature_ids},
         )
-        if paths
+        if feature_ids
         else []
     )
     return {
