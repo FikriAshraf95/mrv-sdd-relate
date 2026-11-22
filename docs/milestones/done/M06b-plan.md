@@ -1,6 +1,6 @@
 # M06b implementation plan (Opus plan → Sonnet build)
 
-Source of truth: [SPEC-11 §2–4, §7, §9](../specs/SPEC-11-deployment-and-demo.md#2-compose), [SPEC-09 §4–6](../specs/SPEC-09-security.md#4-public-mode), [SPEC-07 §2–3, §5](../specs/SPEC-07-dashboard-and-api.md#2-endpoint-index), [SPEC-01 §1](../specs/SPEC-01-architecture.md#1-process-model) rule 4, [SPEC-08 §2](../specs/SPEC-08-cli-and-exports.md#2-commands), [SPEC-10 §4](../specs/SPEC-10-testing-and-benchmark.md#4-invariant-suite). Milestone: [M06b](M06b-public-replay-deploy.md). Previous plan: [M06a-plan](done/M06a-plan.md).
+Source of truth: [SPEC-11 §2–4, §7, §9](../../specs/SPEC-11-deployment-and-demo.md#2-compose), [SPEC-09 §4–6](../../specs/SPEC-09-security.md#4-public-mode), [SPEC-07 §2–3, §5](../../specs/SPEC-07-dashboard-and-api.md#2-endpoint-index), [SPEC-01 §1](../../specs/SPEC-01-architecture.md#1-process-model) rule 4, [SPEC-08 §2](../../specs/SPEC-08-cli-and-exports.md#2-commands), [SPEC-10 §4](../../specs/SPEC-10-testing-and-benchmark.md#4-invariant-suite). Milestone: [M06b](M06b-public-replay-deploy.md). Previous plan: [M06a-plan](M06a-plan.md).
 Follow `CLAUDE.md`. D005 is the highest deviation. This plan expects **no new deviation**: every decision below fills a gap the spec leaves open and goes into the owning spec in the same change (§9). If you knowingly depart from a spec anyway, log it (`sdd deviation …`, D006…).
 
 ## 0. Scope and boundaries

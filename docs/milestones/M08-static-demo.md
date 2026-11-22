@@ -1,6 +1,6 @@
 # M08 — Static demo on GitHub Pages *(cut first if late)*
 
-> **Depends on:** [M06b](M06b-public-replay-deploy.md) · **Blocks:** nothing (M99 links it if it exists)
+> **Depends on:** [M06b](done/M06b-public-replay-deploy.md) · **Blocks:** nothing (M99 links it if it exists)
 > **Read first:** [SPEC-11 §6](../specs/SPEC-11-deployment-and-demo.md#6-static-demo-github-pages) · [SPEC-07 §1, §4](../specs/SPEC-07-dashboard-and-api.md#1-rules) · [SPEC-08 §3](../specs/SPEC-08-cli-and-exports.md#3-exports-and-snapshots)
 > **Model:** Opusplan. Relate's WASM build is unverified (open item O2); the fallback must be ready first.
 

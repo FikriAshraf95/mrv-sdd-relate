@@ -1,6 +1,6 @@
 # M07 — Benchmark
 
-> **Depends on:** [M06b](M06b-public-replay-deploy.md) · **Blocks:** [M99](M99-release-and-submission.md)
+> **Depends on:** [M06b](done/M06b-public-replay-deploy.md) · **Blocks:** [M99](M99-release-and-submission.md)
 > **Read first:** [SPEC-10 §5, §7](../specs/SPEC-10-testing-and-benchmark.md#5-benchmark) · [SPEC-05 §4](../specs/SPEC-05-agent-tools.md#4-get_context) · [SPEC-00 §7](../specs/SPEC-00-overview.md#7-success-criteria)
 > **Model:** Sonnet. A measurement script over existing tools.
 
